@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal de Capacitación - Ministerio de Ciencia</title>
+<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f4f8; color: #1a202c; }
+    .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Configuración y catálogo de cursos, compartidos con las demás páginas -->
+<script src="config.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const DOMINIO = window.DOMINIO_PERMITIDO;
+
+function esCorreoValido(email) {
+    return !!email && email.toLowerCase().endsWith("@" + DOMINIO);
+}
+
+const App = () => {
+    const [cargando, setCargando] = useState(true);
+    const [sesion, setSesion] = useState(null);
+    const [errorDominio, setErrorDominio] = useState(false);
+    const [esAdmin, setEsAdmin] = useState(false);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data }) => {
+            manejarSesion(data.session);
+            setCargando(false);
+        });
+
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            manejarSesion(session);
+        });
+        return () => listener.subscription.unsubscribe();
+    }, []);
+
+    const manejarSesion = async (session) => {
+        if (!session) { setSesion(null); return; }
+
+        const email = session.user.email || "";
+        if (!esCorreoValido(email)) {
+            // Defensa en el cliente. La defensa real está en la base de datos
+            // (ver esquema-supabase.sql): esa cuenta jamás debería poder
+            // guardar datos aunque alguien manipule este JavaScript.
+            setErrorDominio(true);
+            await supabase.auth.signOut();
+            setSesion(null);
+            return;
+        }
+        setErrorDominio(false);
+        setSesion(session);
+
+        // Guarda / actualiza el perfil básico del usuario.
+        await supabase.from("perfiles").upsert({
+            id: session.user.id,
+            email: email,
+            nombre_completo: session.user.user_metadata.full_name || session.user.user_metadata.name || "",
+            ultimo_ingreso: new Date().toISOString()
+        });
+
+        const { data: perfil } = await supabase.from("perfiles").select("es_admin").eq("id", session.user.id).single();
+        setEsAdmin(!!(perfil && perfil.es_admin));
+    };
+
+    const iniciarSesion = async () => {
+        setErrorDominio(false);
+        await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                // "hd" le pide a Google que solo muestre/permita cuentas de ese
+                // dominio en el selector. Es una ayuda de UX, no una barrera de
+                // seguridad real — por eso igual validamos en el cliente y en la BD.
+                queryParams: { hd: DOMINIO, prompt: "select_account" },
+                redirectTo: window.location.href.split("#")[0]
+            }
+        });
+    };
+
+    const cerrarSesion = async () => {
+        await supabase.auth.signOut();
+        setSesion(null);
+    };
+
+    if (cargando) {
+        return <div className="min-h-screen flex items-center justify-center text-gray-400">Cargando…</div>;
+    }
+
+    if (!sesion) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="bg-white p-10 rounded-3xl shadow-2xl max-w-md w-full text-center fade-in">
+                    <div className="text-blue-600 text-5xl mb-4"><i className="fa-solid fa-building-columns"></i></div>
+                    <h1 className="text-2xl font-bold mb-2">Portal de Capacitación</h1>
+                    <p className="text-gray-500 mb-8">Ministerio de Ciencia, Tecnología, Conocimiento e Innovación</p>
+
+                    {errorDominio && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-4 mb-6 text-left">
+                            <i className="fa-solid fa-circle-exclamation mr-2"></i>
+                            Esa cuenta de Google no pertenece al dominio <strong>@{DOMINIO}</strong>. Inicia sesión con tu correo institucional.
+                        </div>
+                    )}
+
+                    <button onClick={iniciarSesion} className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 hover:border-gray-300 rounded-xl py-3 font-semibold text-gray-700 transition-colors">
+                        <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.9 32.6 29.4 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4c-7.7 0-14.3 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.3 0 10.1-2 13.7-5.4l-6.3-5.3C29.4 35 26.8 36 24 36c-5.4 0-9.9-3.4-11.5-8.2l-6.5 5C9.6 39.5 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.3 5.3C39.9 36.9 44 31 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+                        Ingresar con Google
+                    </button>
+                    <p className="text-xs text-gray-400 mt-6">Acceso exclusivo para funcionarios con correo @{DOMINIO}</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen">
+            <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                <h1 className="font-bold"><i className="fa-solid fa-building-columns mr-2"></i>Portal de Capacitación</h1>
+                <div className="flex items-center gap-4 text-sm">
+                    <span className="hidden sm:inline text-slate-300">{sesion.user.email}</span>
+                    {esAdmin && (
+                        <a href="admin.html" className="bg-blue-700 hover:bg-blue-600 px-3 py-1.5 rounded-full">
+                            <i className="fa-solid fa-gauge mr-1"></i>Panel admin
+                        </a>
+                    )}
+                    <button onClick={cerrarSesion} className="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full">
+                        <i className="fa-solid fa-arrow-right-from-bracket mr-1"></i>Salir
+                    </button>
+                </div>
+            </header>
+
+            <main className="max-w-5xl mx-auto p-6 md:p-10">
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Cursos disponibles</h2>
+                <p className="text-gray-500 mb-8">Bienvenido/a, {sesion.user.user_metadata.full_name || sesion.user.email}.</p>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {window.CATALOGO_CURSOS.map(curso => (
+                        <a key={curso.id} href={curso.url} className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow p-6 flex flex-col fade-in">
+                            <div className={`${curso.color} text-white w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4`}>
+                                <i className={`fa-solid ${curso.icono}`}></i>
+                            </div>
+                            <h3 className="font-bold text-gray-800 mb-2">{curso.titulo}</h3>
+                            <p className="text-sm text-gray-500 flex-grow">{curso.descripcion}</p>
+                            <span className="mt-4 text-blue-600 font-semibold text-sm">Ingresar al curso <i className="fa-solid fa-arrow-right ml-1"></i></span>
+                        </a>
+                    ))}
+                </div>
+            </main>
+        </div>
+    );
+};
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>

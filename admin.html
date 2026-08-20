@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Administrador - Portal de Capacitación</title>
+<script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="config.js"></script>
+<style>body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+function esCorreoValido(email) {
+    return !!email && email.toLowerCase().endsWith("@" + window.DOMINIO_PERMITIDO);
+}
+
+const nombreCurso = (id) => {
+    const c = window.CATALOGO_CURSOS.find(c => c.id === id);
+    return c ? c.titulo : id;
+};
+
+const App = () => {
+    const [estado, setEstado] = useState("verificando"); // verificando | sin-acceso | listo
+    const [inscripciones, setInscripciones] = useState([]);
+    const [certificados, setCertificados] = useState([]);
+    const [filtroCurso, setFiltroCurso] = useState("todos");
+
+    useEffect(() => {
+        (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session || !esCorreoValido(session.user.email)) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const { data: perfil } = await supabase
+                .from("perfiles")
+                .select("es_admin")
+                .eq("id", session.user.id)
+                .single();
+
+            if (!perfil || !perfil.es_admin) {
+                setEstado("sin-acceso");
+                return;
+            }
+
+            const [{ data: insc }, { data: certs }] = await Promise.all([
+                supabase.from("inscripciones").select("*").order("iniciado_en", { ascending: false }),
+                supabase.from("certificados").select("*").order("emitido_en", { ascending: false })
+            ]);
+            setInscripciones(insc || []);
+            setCertificados(certs || []);
+            setEstado("listo");
+        })();
+    }, []);
+
+    if (estado === "verificando") {
+        return <div className="min-h-screen flex items-center justify-center text-gray-400">Verificando acceso…</div>;
+    }
+
+    if (estado === "sin-acceso") {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md text-center">
+                    <div className="text-red-500 text-4xl mb-4"><i className="fa-solid fa-lock"></i></div>
+                    <h1 className="text-xl font-bold mb-2">Sin acceso de administrador</h1>
+                    <p className="text-gray-500 mb-6">Tu cuenta no tiene permisos para ver este panel.</p>
+                    <a href="index.html" className="text-blue-600 font-semibold"><i className="fa-solid fa-arrow-left mr-2"></i>Volver al portal</a>
+                </div>
+            </div>
+        );
+    }
+
+    const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
+    const inscFiltradas = filtroCurso === "todos" ? inscripciones : inscripciones.filter(i => i.curso_id === filtroCurso);
+
+    const certificadoDe = (userId, cursoId) =>
+        certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
+
+    return (
+        <div className="min-h-screen">
+            <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                <a href="index.html" className="font-bold hover:text-blue-300"><i className="fa-solid fa-arrow-left mr-2"></i>Panel de Administrador</a>
+            </header>
+
+            <main className="max-w-6xl mx-auto p-6 md:p-10">
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Inscritos y certificados</h2>
+                    <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="todos">Todos los cursos</option>
+                        {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
+                    </select>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-md overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                            <tr>
+                                <th className="text-left px-4 py-3">Nombre</th>
+                                <th className="text-left px-4 py-3">Correo</th>
+                                <th className="text-left px-4 py-3">RUT</th>
+                                <th className="text-left px-4 py-3">Curso</th>
+                                <th className="text-left px-4 py-3">Inscrito</th>
+                                <th className="text-left px-4 py-3">Resultado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {inscFiltradas.map(i => {
+                                const cert = certificadoDe(i.user_id, i.curso_id);
+                                return (
+                                    <tr key={i.id} className="border-t border-gray-100">
+                                        <td className="px-4 py-3 font-medium text-gray-800">{i.nombre}</td>
+                                        <td className="px-4 py-3 text-gray-500">{i.email}</td>
+                                        <td className="px-4 py-3 text-gray-500">{i.rut}</td>
+                                        <td className="px-4 py-3 text-gray-500">{nombreCurso(i.curso_id)}</td>
+                                        <td className="px-4 py-3 text-gray-500">{new Date(i.iniciado_en).toLocaleDateString("es-CL")}</td>
+                                        <td className="px-4 py-3">
+                                            {!cert && <span className="text-gray-400">En curso</span>}
+                                            {cert && cert.aprobado && <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Aprobado ({cert.puntaje}%)</span>}
+                                            {cert && !cert.aprobado && <span className="text-red-500 font-semibold"><i className="fa-solid fa-circle-xmark mr-1"></i>Reprobado ({cert.puntaje}%)</span>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {inscFiltradas.length === 0 && (
+                                <tr><td colSpan="6" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    );
+};
+
+ReactDOM.render(<App />, document.getElementById("root"));
+</script>
+</body>
+</html>
