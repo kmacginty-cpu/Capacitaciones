@@ -10,6 +10,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- Librería para los Gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="config.js"></script>
 <style>body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }</style>
@@ -18,22 +20,42 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect } = React;
-const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+const { useState, useEffect, useRef } = React;
+const supabase = window.supabase ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY) : null;
 
 function esCorreoValido(email) {
     return !!email && email.toLowerCase().endsWith("@" + window.DOMINIO_PERMITIDO);
 }
 
 const nombreCurso = (id) => {
+    if (!window.CATALOGO_CURSOS) return id;
     const c = window.CATALOGO_CURSOS.find(c => c.id === id);
     return c ? c.titulo : id;
 };
 
+// Componente Wrapper para renderizar los gráficos de Chart.js
+const Grafico = ({ tipo, data, options }) => {
+    const canvasRef = useRef(null);
+    const chartInstance = useRef(null);
+
+    useEffect(() => {
+        if (chartInstance.current) {
+            chartInstance.current.destroy();
+        }
+        const ctx = canvasRef.current.getContext('2d');
+        chartInstance.current = new Chart(ctx, { type: tipo, data, options });
+        return () => {
+            if (chartInstance.current) chartInstance.current.destroy();
+        };
+    }, [tipo, data, options]);
+
+    return <canvas ref={canvasRef}></canvas>;
+};
+
 const App = () => {
-    const [estado, setEstado] = useState("verificando"); // verificando | sin-acceso | listo
+    const [estado, setEstado] = useState("verificando"); 
     const [inscripciones, setInscripciones] = useState([]);
-    const [certificados, setCertificados] = useState([]);
+    const [evaluaciones, setEvaluaciones] = useState([]); // Antes "certificados"
     const [filtroCurso, setFiltroCurso] = useState("todos");
 
     useEffect(() => {
@@ -43,117 +65,133 @@ const App = () => {
                 setInscripciones([
                     { id: 1, user_id: uid, curso_id: "probidad-2026", nombre: "Juan Pérez González", email: "juan.perez@minciencia.gob.cl", rut: "12345678-9", iniciado_en: new Date().toISOString() },
                     { id: 2, user_id: "otro-1", curso_id: "probidad-2026", nombre: "María Soto Reyes", email: "maria.soto@minciencia.gob.cl", rut: "9876543-2", iniciado_en: new Date().toISOString() },
-                    { id: 3, user_id: "otro-2", curso_id: "probidad-2026", nombre: "Pedro Vidal Muñoz", email: "pedro.vidal@minciencia.gob.cl", rut: "11222333-4", iniciado_en: new Date().toISOString() }
+                    { id: 3, user_id: "otro-2", curso_id: "probidad-2026", nombre: "Pedro Vidal Muñoz", email: "pedro.vidal@minciencia.gob.cl", rut: "11222333-4", iniciado_en: new Date().toISOString() },
+                    { id: 4, user_id: "otro-3", curso_id: "ciberseguridad", nombre: "Ana López", email: "ana.lopez@minciencia.gob.cl", rut: "15555666-7", iniciado_en: new Date().toISOString() }
                 ]);
-                setCertificados([
-                    { user_id: uid, curso_id: "probidad-2026", puntaje: 90, aprobado: true },
-                    { user_id: "otro-2", curso_id: "probidad-2026", puntaje: 60, aprobado: false }
-                    // "otro-1" (María) no tiene certificado todavía → queda "En curso"
+                
+                // Múltiples intentos para demostrar el historial
+                setEvaluaciones([
+                    { user_id: uid, curso_id: "probidad-2026", puntaje: 90, aprobado: true, emitido_en: "2026-08-10T10:00:00Z" },
+                    // Pedro reprobó la primera, luego aprobó
+                    { user_id: "otro-2", curso_id: "probidad-2026", puntaje: 45, aprobado: false, emitido_en: "2026-08-11T12:00:00Z" },
+                    { user_id: "otro-2", curso_id: "probidad-2026", puntaje: 85, aprobado: true, emitido_en: "2026-08-12T15:00:00Z" },
+                    // María reprobó dos veces y se rindió por ahora
+                    { user_id: "otro-1", curso_id: "probidad-2026", puntaje: 30, aprobado: false, emitido_en: "2026-08-09T09:00:00Z" },
+                    { user_id: "otro-1", curso_id: "probidad-2026", puntaje: 55, aprobado: false, emitido_en: "2026-08-10T09:00:00Z" }
                 ]);
                 setEstado("listo");
                 return;
             }
 
+            if (!supabase) return;
             const { data: { session } } = await supabase.auth.getSession();
             if (!session || !esCorreoValido(session.user.email)) {
                 window.location.href = "index.html";
                 return;
             }
 
-            const { data: perfil } = await supabase
-                .from("perfiles")
-                .select("es_admin")
-                .eq("id", session.user.id)
-                .single();
-
+            const { data: perfil } = await supabase.from("perfiles").select("es_admin").eq("id", session.user.id).single();
             if (!perfil || !perfil.es_admin) {
                 setEstado("sin-acceso");
                 return;
             }
 
+            // Asumiendo que la tabla se llama "certificados" o "evaluaciones"
             const [{ data: insc }, { data: certs }] = await Promise.all([
                 supabase.from("inscripciones").select("*").order("iniciado_en", { ascending: false }),
-                supabase.from("certificados").select("*").order("emitido_en", { ascending: false })
+                supabase.from("certificados").select("*").order("emitido_en", { ascending: true }) // Orden cronológico
             ]);
             setInscripciones(insc || []);
-            setCertificados(certs || []);
+            setEvaluaciones(certs || []);
             setEstado("listo");
         })();
     }, []);
 
-    if (estado === "verificando") {
-        return <div className="min-h-screen flex items-center justify-center text-gray-400">Verificando acceso…</div>;
-    }
-
-    if (estado === "sin-acceso") {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-6">
-                <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md text-center">
-                    <div className="text-red-500 text-4xl mb-4"><i className="fa-solid fa-lock"></i></div>
-                    <h1 className="text-xl font-bold mb-2">Sin acceso de administrador</h1>
-                    <p className="text-gray-500 mb-6">Tu cuenta no tiene permisos para ver este panel.</p>
-                    <a href="index.html" className="text-blue-600 font-semibold"><i className="fa-solid fa-arrow-left mr-2"></i>Volver al portal</a>
-                </div>
+    if (estado === "verificando") return <div className="min-h-screen flex items-center justify-center text-gray-400">Verificando acceso…</div>;
+    if (estado === "sin-acceso") return (
+        <div className="min-h-screen flex items-center justify-center p-6">
+            <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md text-center">
+                <div className="text-red-500 text-4xl mb-4"><i className="fa-solid fa-lock"></i></div>
+                <h1 className="text-xl font-bold mb-2">Sin acceso</h1>
+                <p className="text-gray-500 mb-6">Tu cuenta no tiene permisos para ver este panel.</p>
+                <a href="index.html" className="text-blue-600 font-semibold">Volver al portal</a>
             </div>
-        );
-    }
+        </div>
+    );
 
-    // Un certificado existe (aprobado o no) apenas la persona termina el
-    // quiz — por eso "terminó" y "aprobó" son dos preguntas distintas.
-    const certificadoDe = (userId, cursoId) =>
-        certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
+    // Agrupar historial por usuario y curso
+    const historialDe = (userId, cursoId) => evaluaciones.filter(c => c.user_id === userId && c.curso_id === cursoId).sort((a, b) => new Date(a.emitido_en) - new Date(b.emitido_en));
 
     const filasConEstado = inscripciones.map(i => {
-        const cert = certificadoDe(i.user_id, i.curso_id);
+        const history = historialDe(i.user_id, i.curso_id);
+        const aprobado = history.some(h => h.aprobado);
+        const lastAttempt = history[history.length - 1];
+
         return {
             ...i,
-            terminado: !!cert,
-            aprobado: cert ? cert.aprobado : null,
-            puntaje: cert ? cert.puntaje : null
+            historial: history,
+            terminado: history.length > 0, 
+            aprobado: aprobado,
+            puntaje: aprobado ? history.find(h => h.aprobado).puntaje : (lastAttempt ? lastAttempt.puntaje : null)
         };
     });
 
     const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
     const filasFiltradas = filtroCurso === "todos" ? filasConEstado : filasConEstado.filter(i => i.curso_id === filtroCurso);
 
+    // Cálculos para el Dashboard
+    const stats = {
+        total: filasFiltradas.length,
+        enCurso: filasFiltradas.filter(f => !f.terminado).length,
+        aprobados: filasFiltradas.filter(f => f.aprobado).length,
+        reprobados: filasFiltradas.filter(f => f.terminado && !f.aprobado).length
+    };
+
+    // Configuración Gráfico 1: Estado General
+    const dataGraficoEstado = {
+        labels: ['Aprobados', 'Reprobados', 'En curso'],
+        datasets: [{
+            data: [stats.aprobados, stats.reprobados, stats.enCurso],
+            backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+            borderWidth: 0
+        }]
+    };
+
     const descargarExcel = async () => {
         const libro = new ExcelJS.Workbook();
         const hoja = libro.addWorksheet("Capacitación");
 
-        const filas = filasFiltradas.map(i => ([
-            i.nombre,
-            i.email,
-            i.rut,
-            nombreCurso(i.curso_id),
-            new Date(i.iniciado_en).toLocaleDateString("es-CL"),
-            i.terminado ? "Terminado" : "En curso",
-            !i.terminado ? "—" : (i.aprobado ? "Aprobado" : "Reprobado"),
-            i.terminado ? i.puntaje + "%" : "—"
-        ]));
+        const filas = filasFiltradas.map(i => {
+            const historialTexto = i.historial.map((h, idx) => `Intento ${idx+1}: ${h.puntaje}% (${h.aprobado ? 'Aprobó' : 'Reprobó'})`).join(" | ");
+            return [
+                i.nombre,
+                i.email,
+                i.rut,
+                nombreCurso(i.curso_id),
+                new Date(i.iniciado_en).toLocaleDateString("es-CL"),
+                i.terminado ? "Con Evaluaciones" : "Sin intentos",
+                !i.terminado ? "—" : (i.aprobado ? "Aprobado" : "Reprobado"),
+                i.terminado ? i.puntaje + "%" : "—",
+                historialTexto || "Ninguno"
+            ];
+        });
 
-        // addTable crea una TABLA real de Excel: encabezado con color,
-        // flechitas de filtro, y filas alternadas — no solo datos sueltos.
         hoja.addTable({
             name: "TablaCapacitacion",
             ref: "A1",
             headerRow: true,
             style: { theme: "TableStyleMedium9", showRowStripes: true },
             columns: [
-                { name: "Nombre" },
-                { name: "Correo" },
-                { name: "RUT" },
-                { name: "Curso" },
-                { name: "Fecha de inscripción" },
-                { name: "Estado" },
-                { name: "Resultado" },
-                { name: "Puntaje" }
+                { name: "Nombre" }, { name: "Correo" }, { name: "RUT" }, { name: "Curso" },
+                { name: "Inscripción" }, { name: "Estado" }, { name: "Resultado Final" },
+                { name: "Puntaje Final" }, { name: "Historial de Intentos" }
             ],
             rows: filas
         });
 
         hoja.columns = [
-            { width: 28 }, { width: 30 }, { width: 14 }, { width: 32 },
-            { width: 18 }, { width: 12 }, { width: 12 }, { width: 10 }
+            { width: 28 }, { width: 30 }, { width: 14 }, { width: 25 },
+            { width: 15 }, { width: 18 }, { width: 15 }, { width: 15 }, { width: 50 }
         ];
 
         const buffer = await libro.xlsx.writeBuffer();
@@ -161,7 +199,7 @@ const App = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `Reporte_Capacitacion_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        link.download = `Reporte_${filtroCurso}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -169,63 +207,117 @@ const App = () => {
     };
 
     return (
-        <div className="min-h-screen">
-            <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+        <div className="min-h-screen pb-10">
+            <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center mb-6">
                 <a href="index.html" className="font-bold hover:text-blue-300"><i className="fa-solid fa-arrow-left mr-2"></i>Panel de Administrador</a>
             </header>
 
-            <main className="max-w-6xl mx-auto p-6 md:p-10">
+            <main className="max-w-7xl mx-auto px-4 md:px-8">
+                {/* Controles y Filtro */}
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Inscritos y progreso</h2>
+                    <h2 className="text-3xl font-bold text-gray-800">Dashboard de Desempeño</h2>
                     <div className="flex gap-3">
-                        <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium shadow-sm">
                             <option value="todos">Todos los cursos</option>
                             {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
                         </select>
-                        <button onClick={descargarExcel} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center">
-                            <i className="fa-solid fa-file-excel mr-2"></i>Descargar Excel
+                        <button onClick={descargarExcel} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center">
+                            <i className="fa-solid fa-file-excel mr-2"></i>Exportar Excel
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-md overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                            <tr>
-                                <th className="text-left px-4 py-3">Nombre</th>
-                                <th className="text-left px-4 py-3">Correo</th>
-                                <th className="text-left px-4 py-3">RUT</th>
-                                <th className="text-left px-4 py-3">Curso</th>
-                                <th className="text-left px-4 py-3">Inscrito</th>
-                                <th className="text-left px-4 py-3">Estado</th>
-                                <th className="text-left px-4 py-3">Resultado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filasFiltradas.map(i => (
-                                <tr key={i.id} className="border-t border-gray-100">
-                                    <td className="px-4 py-3 font-medium text-gray-800">{i.nombre}</td>
-                                    <td className="px-4 py-3 text-gray-500">{i.email}</td>
-                                    <td className="px-4 py-3 text-gray-500">{i.rut}</td>
-                                    <td className="px-4 py-3 text-gray-500">{nombreCurso(i.curso_id)}</td>
-                                    <td className="px-4 py-3 text-gray-500">{new Date(i.iniciado_en).toLocaleDateString("es-CL")}</td>
-                                    <td className="px-4 py-3">
-                                        {i.terminado
-                                            ? <span className="text-blue-600 font-semibold"><i className="fa-solid fa-flag-checkered mr-1"></i>Terminado</span>
-                                            : <span className="text-amber-500 font-semibold"><i className="fa-solid fa-hourglass-half mr-1"></i>En curso</span>}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        {!i.terminado && <span className="text-gray-400">—</span>}
-                                        {i.terminado && i.aprobado && <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Aprobado ({i.puntaje}%)</span>}
-                                        {i.terminado && !i.aprobado && <span className="text-red-500 font-semibold"><i className="fa-solid fa-circle-xmark mr-1"></i>Reprobado ({i.puntaje}%)</span>}
-                                    </td>
+                {/* Tarjetas de Estadísticas */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 flex items-center justify-between">
+                        <div><p className="text-sm text-gray-500 font-semibold mb-1">Total Inscritos</p><h3 className="text-3xl font-bold text-gray-800">{stats.total}</h3></div>
+                        <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center text-xl"><i className="fa-solid fa-users"></i></div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500 flex items-center justify-between">
+                        <div><p className="text-sm text-gray-500 font-semibold mb-1">En Curso (Sin intentos)</p><h3 className="text-3xl font-bold text-gray-800">{stats.enCurso}</h3></div>
+                        <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xl"><i className="fa-solid fa-book-open"></i></div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 flex items-center justify-between">
+                        <div><p className="text-sm text-gray-500 font-semibold mb-1">Aprobados</p><h3 className="text-3xl font-bold text-gray-800">{stats.aprobados}</h3></div>
+                        <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xl"><i className="fa-solid fa-graduation-cap"></i></div>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500 flex items-center justify-between">
+                        <div><p className="text-sm text-gray-500 font-semibold mb-1">Reprobados</p><h3 className="text-3xl font-bold text-gray-800">{stats.reprobados}</h3></div>
+                        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-xl"><i className="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                </div>
+
+                {/* Gráficos */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-2xl shadow-sm lg:col-span-1">
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Estado General</h3>
+                        <div className="relative h-64 w-full flex justify-center">
+                            {stats.total === 0 ? <p className="text-gray-400 mt-20">Sin datos</p> : 
+                            <Grafico tipo="doughnut" data={dataGraficoEstado} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />}
+                        </div>
+                    </div>
+                    
+                    {/* Explicación rápida o espacio para más data (podrías meter otro gráfico aquí) */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm lg:col-span-2">
+                        <h3 className="text-lg font-bold text-gray-700 mb-4">Información Adicional</h3>
+                        <p className="text-gray-600 text-sm mb-4">
+                            En esta tabla se muestra el <strong>Resultado Final</strong> de cada usuario. Si un usuario reprueba un curso, puede volver a intentarlo; el sistema registrará todos sus intentos. 
+                            Basta con que el usuario apruebe una vez para que su estado final cambie a <span className="text-green-600 font-bold">Aprobado</span>.
+                        </p>
+                        <div className="bg-blue-50 border border-blue-100 text-blue-800 text-sm p-4 rounded-lg flex items-start">
+                            <i className="fa-solid fa-circle-info mt-1 mr-3 text-blue-500"></i>
+                            <div>
+                                Al exportar a Excel, el archivo incluirá una columna especial detallando cada intento con su fecha y porcentaje exacto para que tengas trazabilidad completa.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tabla de Resultados */}
+                <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-xs font-semibold">
+                                <tr>
+                                    <th className="text-left px-5 py-4">Usuario</th>
+                                    <th className="text-left px-5 py-4">Curso</th>
+                                    <th className="text-left px-5 py-4 w-64">Historial de Intentos</th>
+                                    <th className="text-center px-5 py-4">Resultado Final</th>
                                 </tr>
-                            ))}
-                            {filasFiltradas.length === 0 && (
-                                <tr><td colSpan="7" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filasFiltradas.map(i => (
+                                    <tr key={i.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-5 py-4">
+                                            <div className="font-bold text-gray-800">{i.nombre}</div>
+                                            <div className="text-xs text-gray-500">{i.email} <span className="mx-1">•</span> {i.rut}</div>
+                                        </td>
+                                        <td className="px-5 py-4 text-gray-600">{nombreCurso(i.curso_id)}</td>
+                                        <td className="px-5 py-4">
+                                            {i.historial.length === 0 ? <span className="text-gray-400 italic text-xs">Aún sin intentos</span> : 
+                                                <div className="flex flex-wrap gap-1">
+                                                    {i.historial.map((h, idx) => (
+                                                        <span key={idx} className={`text-xs px-2 py-1 rounded border font-medium ${h.aprobado ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`} title={`Fecha: ${new Date(h.emitido_en).toLocaleString()}`}>
+                                                            {h.aprobado ? <i className="fa-solid fa-check mr-1"></i> : <i className="fa-solid fa-xmark mr-1"></i>}
+                                                            {h.puntaje}%
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            }
+                                        </td>
+                                        <td className="px-5 py-4 text-center">
+                                            {!i.terminado && <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded-full font-bold">En curso</span>}
+                                            {i.terminado && i.aprobado && <span className="inline-block bg-green-100 text-green-800 text-xs px-3 py-1 rounded-full font-bold">Aprobado ({i.puntaje}%)</span>}
+                                            {i.terminado && !i.aprobado && <span className="inline-block bg-red-100 text-red-800 text-xs px-3 py-1 rounded-full font-bold">Reprobado ({i.puntaje}%)</span>}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filasFiltradas.length === 0 && (
+                                    <tr><td colSpan="4" className="px-5 py-12 text-center text-gray-400 text-base">No hay registros para este curso.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </main>
         </div>
@@ -234,7 +326,7 @@ const App = () => {
 
 if (window.MODO_DEMO) {
     const banner = document.createElement("div");
-    banner.textContent = "MODO DEMO — datos de ejemplo, no se guarda nada real";
+    banner.textContent = "MODO DEMO — datos de ejemplo con historial de evaluación";
     banner.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#f59e0b;color:#1a202c;text-align:center;font-weight:700;font-size:13px;padding:6px;z-index:9999;font-family:sans-serif";
     document.body.appendChild(banner);
 }
