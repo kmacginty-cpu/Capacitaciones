@@ -87,6 +87,36 @@ const App = () => {
     const certificadoDe = (userId, cursoId) =>
         certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
 
+    // Función para descargar Excel
+    const descargarExcel = () => {
+        let csv = "Nombre,Correo,RUT,Curso,Fecha Inscripcion,Estado de Progreso,Puntaje Final\n";
+        
+        inscFiltradas.forEach(i => {
+            const cert = certificadoDe(i.user_id, i.curso_id);
+            const nombreC = nombreCurso(i.curso_id);
+            const fecha = new Date(i.iniciado_en).toLocaleDateString("es-CL");
+            
+            let estado = "En curso (No ha terminado)";
+            let puntaje = "Sin nota aún";
+            
+            if (cert) {
+                estado = cert.aprobado ? "Completado (Aprobado)" : "Completado (Reprobado)";
+                puntaje = cert.puntaje + "%";
+            }
+            
+            csv += `"${i.nombre}","${i.email}","${i.rut}","${nombreC}","${fecha}","${estado}","${puntaje}"\n`;
+        });
+
+        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "Reporte_Progreso_Capacitacion.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="min-h-screen">
             <header className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
@@ -95,11 +125,16 @@ const App = () => {
 
             <main className="max-w-6xl mx-auto p-6 md:p-10">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Inscritos y certificados</h2>
-                    <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option value="todos">Todos los cursos</option>
-                        {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
-                    </select>
+                    <h2 className="text-2xl font-bold text-gray-800">Inscritos y progreso</h2>
+                    <div className="flex gap-4">
+                        <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="todos">Todos los cursos</option>
+                            {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
+                        </select>
+                        <button onClick={descargarExcel} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center">
+                            <i className="fa-solid fa-file-excel mr-2"></i> Descargar Excel
+                        </button>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-md overflow-x-auto">
