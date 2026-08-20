@@ -3,7 +3,7 @@
 // Reemplaza estos 3 valores con los tuyos (ver GUIA_INSTALACION.md).
 // Este archivo lo comparten TODAS las páginas (portal + cada curso).
 // ============================================================
-window.SUPABASE_URL = "https://avohompfoqdtpfjredrf.supabase.co/rest/v1/";
+window.SUPABASE_URL = "https://avohompfoqdtpfjredrf.supabase.co";
 window.SUPABASE_ANON_KEY = "sb_publishable_b-MutVq2FRCZrwAYdcNBVA_MLmbsKQV";
 window.DOMINIO_PERMITIDO = "minciencia.gob.cl";
 
