@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="config.js"></script>
 <style>body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }</style>
@@ -37,6 +38,22 @@ const App = () => {
 
     useEffect(() => {
         (async () => {
+            if (window.MODO_DEMO) {
+                const uid = window.SESION_DEMO.user.id;
+                setInscripciones([
+                    { id: 1, user_id: uid, curso_id: "probidad-2026", nombre: "Juan Pérez González", email: "juan.perez@minciencia.gob.cl", rut: "12345678-9", iniciado_en: new Date().toISOString() },
+                    { id: 2, user_id: "otro-1", curso_id: "probidad-2026", nombre: "María Soto Reyes", email: "maria.soto@minciencia.gob.cl", rut: "9876543-2", iniciado_en: new Date().toISOString() },
+                    { id: 3, user_id: "otro-2", curso_id: "probidad-2026", nombre: "Pedro Vidal Muñoz", email: "pedro.vidal@minciencia.gob.cl", rut: "11222333-4", iniciado_en: new Date().toISOString() }
+                ]);
+                setCertificados([
+                    { user_id: uid, curso_id: "probidad-2026", puntaje: 90, aprobado: true },
+                    { user_id: "otro-2", curso_id: "probidad-2026", puntaje: 60, aprobado: false }
+                    // "otro-1" (María) no tiene certificado todavía → queda "En curso"
+                ]);
+                setEstado("listo");
+                return;
+            }
+
             const { data: { session } } = await supabase.auth.getSession();
             if (!session || !esCorreoValido(session.user.email)) {
                 window.location.href = "index.html";
@@ -81,40 +98,44 @@ const App = () => {
         );
     }
 
-    const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
-    const inscFiltradas = filtroCurso === "todos" ? inscripciones : inscripciones.filter(i => i.curso_id === filtroCurso);
-
+    // Un certificado existe (aprobado o no) apenas la persona termina el
+    // quiz — por eso "terminó" y "aprobó" son dos preguntas distintas.
     const certificadoDe = (userId, cursoId) =>
         certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
 
-    // Función para descargar Excel
-    const descargarExcel = () => {
-        let csv = "Nombre,Correo,RUT,Curso,Fecha Inscripcion,Estado de Progreso,Puntaje Final\n";
-        
-        inscFiltradas.forEach(i => {
-            const cert = certificadoDe(i.user_id, i.curso_id);
-            const nombreC = nombreCurso(i.curso_id);
-            const fecha = new Date(i.iniciado_en).toLocaleDateString("es-CL");
-            
-            let estado = "En curso (No ha terminado)";
-            let puntaje = "Sin nota aún";
-            
-            if (cert) {
-                estado = cert.aprobado ? "Completado (Aprobado)" : "Completado (Reprobado)";
-                puntaje = cert.puntaje + "%";
-            }
-            
-            csv += `"${i.nombre}","${i.email}","${i.rut}","${nombreC}","${fecha}","${estado}","${puntaje}"\n`;
-        });
+    const filasConEstado = inscripciones.map(i => {
+        const cert = certificadoDe(i.user_id, i.curso_id);
+        return {
+            ...i,
+            terminado: !!cert,
+            aprobado: cert ? cert.aprobado : null,
+            puntaje: cert ? cert.puntaje : null
+        };
+    });
 
-        const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "Reporte_Progreso_Capacitacion.csv";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
+    const filasFiltradas = filtroCurso === "todos" ? filasConEstado : filasConEstado.filter(i => i.curso_id === filtroCurso);
+
+    const descargarExcel = () => {
+        const filas = filasFiltradas.map(i => ({
+            "Nombre": i.nombre,
+            "Correo": i.email,
+            "RUT": i.rut,
+            "Curso": nombreCurso(i.curso_id),
+            "Fecha de inscripción": new Date(i.iniciado_en).toLocaleDateString("es-CL"),
+            "Estado": i.terminado ? "Terminado" : "En curso",
+            "Resultado": !i.terminado ? "—" : (i.aprobado ? "Aprobado" : "Reprobado"),
+            "Puntaje": i.terminado ? i.puntaje + "%" : "—"
+        }));
+
+        const hoja = XLSX.utils.json_to_sheet(filas);
+        hoja["!cols"] = [{ wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 32 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+
+        const libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, "Capacitación");
+
+        const fecha = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(libro, `Reporte_Capacitacion_${fecha}.xlsx`);
     };
 
     return (
@@ -126,13 +147,13 @@ const App = () => {
             <main className="max-w-6xl mx-auto p-6 md:p-10">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                     <h2 className="text-2xl font-bold text-gray-800">Inscritos y progreso</h2>
-                    <div className="flex gap-4">
+                    <div className="flex gap-3">
                         <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="todos">Todos los cursos</option>
                             {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
                         </select>
                         <button onClick={descargarExcel} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors shadow-sm flex items-center">
-                            <i className="fa-solid fa-file-excel mr-2"></i> Descargar Excel
+                            <i className="fa-solid fa-file-excel mr-2"></i>Descargar Excel
                         </button>
                     </div>
                 </div>
@@ -146,29 +167,32 @@ const App = () => {
                                 <th className="text-left px-4 py-3">RUT</th>
                                 <th className="text-left px-4 py-3">Curso</th>
                                 <th className="text-left px-4 py-3">Inscrito</th>
+                                <th className="text-left px-4 py-3">Estado</th>
                                 <th className="text-left px-4 py-3">Resultado</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {inscFiltradas.map(i => {
-                                const cert = certificadoDe(i.user_id, i.curso_id);
-                                return (
-                                    <tr key={i.id} className="border-t border-gray-100">
-                                        <td className="px-4 py-3 font-medium text-gray-800">{i.nombre}</td>
-                                        <td className="px-4 py-3 text-gray-500">{i.email}</td>
-                                        <td className="px-4 py-3 text-gray-500">{i.rut}</td>
-                                        <td className="px-4 py-3 text-gray-500">{nombreCurso(i.curso_id)}</td>
-                                        <td className="px-4 py-3 text-gray-500">{new Date(i.iniciado_en).toLocaleDateString("es-CL")}</td>
-                                        <td className="px-4 py-3">
-                                            {!cert && <span className="text-gray-400">En curso</span>}
-                                            {cert && cert.aprobado && <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Aprobado ({cert.puntaje}%)</span>}
-                                            {cert && !cert.aprobado && <span className="text-red-500 font-semibold"><i className="fa-solid fa-circle-xmark mr-1"></i>Reprobado ({cert.puntaje}%)</span>}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            {inscFiltradas.length === 0 && (
-                                <tr><td colSpan="6" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>
+                            {filasFiltradas.map(i => (
+                                <tr key={i.id} className="border-t border-gray-100">
+                                    <td className="px-4 py-3 font-medium text-gray-800">{i.nombre}</td>
+                                    <td className="px-4 py-3 text-gray-500">{i.email}</td>
+                                    <td className="px-4 py-3 text-gray-500">{i.rut}</td>
+                                    <td className="px-4 py-3 text-gray-500">{nombreCurso(i.curso_id)}</td>
+                                    <td className="px-4 py-3 text-gray-500">{new Date(i.iniciado_en).toLocaleDateString("es-CL")}</td>
+                                    <td className="px-4 py-3">
+                                        {i.terminado
+                                            ? <span className="text-blue-600 font-semibold"><i className="fa-solid fa-flag-checkered mr-1"></i>Terminado</span>
+                                            : <span className="text-amber-500 font-semibold"><i className="fa-solid fa-hourglass-half mr-1"></i>En curso</span>}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {!i.terminado && <span className="text-gray-400">—</span>}
+                                        {i.terminado && i.aprobado && <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Aprobado ({i.puntaje}%)</span>}
+                                        {i.terminado && !i.aprobado && <span className="text-red-500 font-semibold"><i className="fa-solid fa-circle-xmark mr-1"></i>Reprobado ({i.puntaje}%)</span>}
+                                    </td>
+                                </tr>
+                            ))}
+                            {filasFiltradas.length === 0 && (
+                                <tr><td colSpan="7" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -177,6 +201,13 @@ const App = () => {
         </div>
     );
 };
+
+if (window.MODO_DEMO) {
+    const banner = document.createElement("div");
+    banner.textContent = "MODO DEMO — datos de ejemplo, no se guarda nada real";
+    banner.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#f59e0b;color:#1a202c;text-align:center;font-weight:700;font-size:13px;padding:6px;z-index:9999;font-family:sans-serif";
+    document.body.appendChild(banner);
+}
 
 ReactDOM.render(<App />, document.getElementById("root"));
 </script>
