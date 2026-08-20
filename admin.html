@@ -9,7 +9,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script src="config.js"></script>
 <style>body { font-family: 'Inter', sans-serif; background-color: #f0f4f8; }</style>
@@ -116,26 +116,56 @@ const App = () => {
     const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
     const filasFiltradas = filtroCurso === "todos" ? filasConEstado : filasConEstado.filter(i => i.curso_id === filtroCurso);
 
-    const descargarExcel = () => {
-        const filas = filasFiltradas.map(i => ({
-            "Nombre": i.nombre,
-            "Correo": i.email,
-            "RUT": i.rut,
-            "Curso": nombreCurso(i.curso_id),
-            "Fecha de inscripción": new Date(i.iniciado_en).toLocaleDateString("es-CL"),
-            "Estado": i.terminado ? "Terminado" : "En curso",
-            "Resultado": !i.terminado ? "—" : (i.aprobado ? "Aprobado" : "Reprobado"),
-            "Puntaje": i.terminado ? i.puntaje + "%" : "—"
-        }));
+    const descargarExcel = async () => {
+        const libro = new ExcelJS.Workbook();
+        const hoja = libro.addWorksheet("Capacitación");
 
-        const hoja = XLSX.utils.json_to_sheet(filas);
-        hoja["!cols"] = [{ wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 32 }, { wch: 16 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
+        const filas = filasFiltradas.map(i => ([
+            i.nombre,
+            i.email,
+            i.rut,
+            nombreCurso(i.curso_id),
+            new Date(i.iniciado_en).toLocaleDateString("es-CL"),
+            i.terminado ? "Terminado" : "En curso",
+            !i.terminado ? "—" : (i.aprobado ? "Aprobado" : "Reprobado"),
+            i.terminado ? i.puntaje + "%" : "—"
+        ]));
 
-        const libro = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(libro, hoja, "Capacitación");
+        // addTable crea una TABLA real de Excel: encabezado con color,
+        // flechitas de filtro, y filas alternadas — no solo datos sueltos.
+        hoja.addTable({
+            name: "TablaCapacitacion",
+            ref: "A1",
+            headerRow: true,
+            style: { theme: "TableStyleMedium9", showRowStripes: true },
+            columns: [
+                { name: "Nombre" },
+                { name: "Correo" },
+                { name: "RUT" },
+                { name: "Curso" },
+                { name: "Fecha de inscripción" },
+                { name: "Estado" },
+                { name: "Resultado" },
+                { name: "Puntaje" }
+            ],
+            rows: filas
+        });
 
-        const fecha = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(libro, `Reporte_Capacitacion_${fecha}.xlsx`);
+        hoja.columns = [
+            { width: 28 }, { width: 30 }, { width: 14 }, { width: 32 },
+            { width: 18 }, { width: 12 }, { width: 12 }, { width: 10 }
+        ];
+
+        const buffer = await libro.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Reporte_Capacitacion_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     return (
