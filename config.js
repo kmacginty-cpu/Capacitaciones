@@ -18,5 +18,6 @@ window.AREAS_MINISTERIO = [
     "División de Política Científica / Políticas Públicas",
     "Comunicaciones y Prensa",
     "Seremis (regiones)",
+    "Compliance",
     "General"
 ];
