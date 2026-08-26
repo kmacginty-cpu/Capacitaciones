@@ -8,7 +8,7 @@ window.DOMINIO_PERMITIDO = "minciencia.gob.cl";
 // Logo institucional
 window.LOGO_URL = "Logo_del_Ministerio_de_Ciencia,_Tecnología,_Conocimiento_y_Innovación_de_Chile.png";
 
-// Áreas del Ministerio para categorizar cursos y administradores
+// Listado de áreas del Ministerio para categorizar los cursos y administradores
 window.AREAS_MINISTERIO = [
     "Gabinete Ministerial",
     "Subsecretaría",
