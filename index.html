@@ -386,6 +386,7 @@ const Curso = ({ curso, sesion }) => {
     const [respuestas, setRespuestas] = useState([]);
     const [puntaje, setPuntaje] = useState(0);
     const [mostrarExp, setMostrarExp] = useState(false);
+    const [videoVisto, setVideoVisto] = useState(false); // <--- NUEVO ESTADO PARA EL VIDEO
     const scrollRef = useRef(null);
 
     useEffect(() => {
@@ -519,12 +520,34 @@ const Curso = ({ curso, sesion }) => {
             return (
                 <div className="max-w-4xl mx-auto w-full slide-up">
                     <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 p-8">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4"><i className="fa-solid fa-circle-play text-red-600 mr-2"></i> Video del curso</h2>
-                        <div className="bg-black rounded-xl overflow-hidden relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                            <i className="fa-solid fa-circle-play text-red-600 mr-2"></i> Video del curso
+                        </h2>
+                        <div className="bg-black rounded-xl overflow-hidden relative mb-6" style={{ paddingBottom: '56.25%', height: 0 }}>
                             <iframe className="absolute top-0 left-0 w-full h-full" src={curso.video_url} frameBorder="0" allowFullScreen></iframe>
                         </div>
-                        <div className="mt-8 flex justify-end">
-                            <button onClick={siguienteModulo} className="bg-blue-600 text-white px-8 py-3 rounded-lg font-bold">Continuar <i className="fa-solid fa-arrow-right ml-2"></i></button>
+
+                        <div className="flex flex-col items-end gap-4 mt-8 border-t border-gray-100 pt-6">
+                            <label className="flex items-center gap-3 cursor-pointer text-gray-700 bg-blue-50 px-4 py-3 rounded-lg border border-blue-100 w-full md:w-auto">
+                                <input 
+                                    type="checkbox" 
+                                    checked={videoVisto} 
+                                    onChange={(e) => setVideoVisto(e.target.checked)} 
+                                    className="w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" 
+                                />
+                                <span className="font-semibold text-blue-900">Confirmo que he visto el video completo</span>
+                            </label>
+
+                            <button 
+                                onClick={siguienteModulo} 
+                                disabled={!videoVisto}
+                                className={`px-8 py-3 rounded-lg font-bold transition-all ${
+                                    videoVisto 
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' 
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                }`}>
+                                Continuar <i className="fa-solid fa-arrow-right ml-2"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -639,7 +662,7 @@ const Curso = ({ curso, sesion }) => {
                 ) : (
                     <>
                         <p className="text-red-600 mb-8 font-medium">No alcanzaste el 80% mínimo de aprobación. Debes volver a realizar el curso.</p>
-                        <button onClick={() => { setVista('modulos'); setModuloActivo(curso.video_url ? -1 : 0); setPuntaje(0); setIndicePregunta(0); setMostrarExp(false); setRespuestas([]); }} className="bg-gray-800 text-white px-8 py-4 rounded-full font-bold"><i className="fa-solid fa-rotate-right mr-2"></i> Volver a Iniciar Curso</button>
+                        <button onClick={() => { setVista('modulos'); setModuloActivo(curso.video_url ? -1 : 0); setPuntaje(0); setIndicePregunta(0); setMostrarExp(false); setRespuestas([]); setVideoVisto(false); }} className="bg-gray-800 text-white px-8 py-4 rounded-full font-bold"><i className="fa-solid fa-rotate-right mr-2"></i> Volver a Iniciar Curso</button>
                     </>
                 )}
             </div>
