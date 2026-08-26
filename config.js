@@ -1,34 +1,24 @@
 // ============================================================
 // CONFIGURACIÓN DE LA PLATAFORMA
-// Reemplaza estos 3 valores con los tuyos (ver GUIA_INSTALACION.md).
-// Este archivo lo comparten TODAS las páginas (portal + cada curso).
+// Este archivo lo usa index.html (la única página que queda:
+// portal, curso y panel de administrador viven ahora todos ahí,
+// enrutados con #/, #/curso/<id> y #/admin).
 // ============================================================
 window.SUPABASE_URL = "https://avohompfoqdtpfjredrf.supabase.co";
 window.SUPABASE_ANON_KEY = "sb_publishable_b-MutVq2FRCZrwAYdcNBVA_MLmbsKQV";
 window.DOMINIO_PERMITIDO = "minciencia.gob.cl";
 
+// Logo institucional: sube la imagen al repositorio junto a
+// index.html y escribe aquí su nombre exacto. Si el archivo no
+// existe o falla al cargar, se muestra automáticamente un ícono
+// de respaldo, así que puedes dejarlo en blanco por ahora.
+window.LOGO_URL = "logo-minciencia.png";
+
 // ============================================================
-// CATÁLOGO DE CURSOS — agrega un objeto por cada curso nuevo.
-// Cuando la plataforma crezca, esta lista se puede reemplazar por
-// una consulta a una tabla "cursos" en Supabase en vez de estar
-// escrita a mano aquí.
+// NOTA: el catálogo de cursos ya NO se define aquí.
+// Los cursos se crean y editan desde el panel de administrador
+// (#/admin → pestaña "Cursos") y quedan guardados en la tabla
+// "cursos" de Supabase. El curso de Probidad sigue disponible
+// como respaldo automático (CURSO_SEMILLA dentro de index.html)
+// hasta que lo importes a la base de datos desde ese panel.
 // ============================================================
-window.CATALOGO_CURSOS = [
-    {
-        id: "probidad-2026",
-        titulo: "Probidad y Conflictos de Interés en el Estado",
-        descripcion: "Curso obligatorio sobre la Ley 20.880: declaración de intereses y patrimonio, fideicomiso ciego y deber de abstención.",
-        icono: "fa-scale-balanced",
-        color: "bg-blue-600",
-        url: "curso-probidad.html"
-    }
-    // Agrega aquí más cursos, por ejemplo:
-    // {
-    //   id: "ciberseguridad-2026",
-    //   titulo: "Ciberseguridad Básica",
-    //   descripcion: "Buenas prácticas de seguridad digital para funcionarios.",
-    //   icono: "fa-shield-halved",
-    //   color: "bg-emerald-600",
-    //   url: "curso-ciberseguridad.html"
-    // }
-];
