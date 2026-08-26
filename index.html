@@ -47,12 +47,18 @@
         .fade-in, .slide-up { animation: none; opacity: 1; transform: none; }
     }
 
+    /* ============================================================
+       PALETA AZUL SUAVE
+       Reemplaza los fondos blancos por tonos azulados claros.
+       Para ajustar la intensidad, modifica estas tres variables:
+       más cerca del blanco = más suave; más saturado = más azul.
+       ============================================================ */
     :root {
-        --azul-fondo:   #e6eef8;   
-        --azul-tarjeta: #f3f8fe;   
-        --azul-tenue:   #e8f0fa;   
-        --azul-borde:   #d5e3f2;   
-        --azul-campo:   #fbfdff;   
+        --azul-fondo:   #e6eef8;   /* fondo general de la página */
+        --azul-tarjeta: #f3f8fe;   /* tarjetas y paneles         */
+        --azul-tenue:   #e8f0fa;   /* encabezados de tabla       */
+        --azul-borde:   #d5e3f2;   /* bordes y separadores       */
+        --azul-campo:   #fbfdff;   /* campos de formulario       */
     }
 
     body {
@@ -73,18 +79,35 @@
 
     .certificate-bg { background-color: #f7fbff !important; }
 
+    /* Pantalla de ingreso: degradado azul oscuro.
+       Para aclararlo, sube los tres tonos (ej: #14306b → #1e3a8a). */
     .pantalla-inicio {
         background-image: linear-gradient(160deg, #0a1836 0%, #14306b 50%, #1e3a8a 100%);
     }
 
+    /* El logo institucional viene con fondo blanco incorporado.
+       Redondearlo hace que se lea como una placa intencional sobre
+       la barra oscura. Si algún día usas un PNG con fondo
+       transparente, borra este bloque completo. */
     .logo-cabecera {
         border-radius: 8px;
+    }
+
+    /* El certificado se imprime en blanco para no gastar tinta */
+    @media print {
+        .certificate-bg { background-color: #ffffff !important; }
     }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
+<!-- ============================================================
+     CONFIGURACIÓN
+     Los valores viven en config.js (compartido con el resto del
+     sitio). Los cursos ya NO se escriben aquí: se crean desde el
+     panel de administrador y se guardan en la base de datos.
+     ============================================================ -->
 <script src="config.js"></script>
 
 <script type="text/babel">
@@ -92,7 +115,6 @@ const { useState, useEffect, useRef } = React;
 
 const supabase = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 const DOMINIO = window.DOMINIO_PERMITIDO;
-const AREAS = window.AREAS_MINISTERIO || ["General"];
 
 function esCorreoValido(email) {
     return !!email && email.toLowerCase().endsWith("@" + DOMINIO);
@@ -100,6 +122,10 @@ function esCorreoValido(email) {
 
 const irA = (ruta) => { window.location.hash = ruta; };
 
+// ============================================================
+// LOGO INSTITUCIONAL
+// Si el archivo no se encuentra, cae al ícono de respaldo.
+// ============================================================
 const Logo = ({ clase = "h-12", fallback = "text-blue-600 text-5xl" }) => {
     const [falla, setFalla] = useState(false);
     if (!window.LOGO_URL || falla) {
@@ -107,12 +133,16 @@ const Logo = ({ clase = "h-12", fallback = "text-blue-600 text-5xl" }) => {
     }
     return (
         <img src={window.LOGO_URL}
-             alt="Ministerio de Ciencia"
+             alt="Ministerio de Ciencia, Tecnología, Conocimiento e Innovación"
              className={`${clase} w-auto object-contain`}
              onError={() => setFalla(true)} />
     );
 };
 
+// ============================================================
+// RUT CHILENO
+// Solo dígitos; la K se acepta únicamente como verificador final.
+// ============================================================
 const formatearRut = (valor) => {
     let limpio = valor.replace(/[^0-9kK]/g, "").toUpperCase();
     limpio = limpio.replace(/K(?=.)/g, "");
@@ -138,12 +168,14 @@ const rutValido = (rut) => {
 
 // ============================================================
 // CURSO SEMILLA
+// El curso de Probidad queda aquí como respaldo, para que el portal
+// nunca aparezca vacío. Desde el panel puedes importarlo a la base
+// de datos y, a partir de ahí, editarlo como cualquier otro.
 // ============================================================
 const CURSO_SEMILLA = {
     id: "probidad-2026",
     titulo: "Probidad y Conflictos de Interés en el Estado",
     descripcion: "Curso obligatorio sobre la Ley 20.880: declaración de intereses y patrimonio, fideicomiso ciego y deber de abstención.",
-    area: "Auditoría Interna",
     icono: "fa-scale-balanced",
     color: "bg-blue-600",
     publicado: true,
@@ -164,6 +196,41 @@ const CURSO_SEMILLA = {
         teoria: "Deben realizar la Declaración de Intereses y Patrimonio (DIP) desde el Presidente de la República hasta el personal de tercer nivel jerárquico. Esto incluye autoridades, jefes de servicio, alcaldes y oficiales de las Fuerzas Armadas y de Orden.",
         aplicacion: "Atención: El Art. 4 N°11 obliga también a personas contratadas a honorarios si perciben regularmente una remuneración igual o superior al promedio mensual de un funcionario de tercer nivel jerárquico.",
         alerta: "La Unidad de Auditoría Interna debe mantener un catastro actualizado de sujetos obligados para gestionar adecuadamente la matriz de riesgos institucionales."
+    },
+    {
+        titulo: "3. Plazos Legales para la DIP (Art. 5)",
+        icono: "fa-calendar-check",
+        teoria: "Los plazos son improrrogables:\n1) Al asumir: 30 días.\n2) Actualización anual: Todo el mes de marzo.\n3) Al cesar funciones: 30 días posteriores a la salida.",
+        aplicacion: "Si asumes un cargo en enero, debes declarar en febrero. Independiente de eso, estarás obligado a actualizar la declaración nuevamente en marzo de ese mismo año.",
+        alerta: "Omitir la DIP al cese de funciones es una falta grave. Se recomienda a las áreas de Gestión de Personas incorporar este paso en su checklist de desvinculación."
+    },
+    {
+        titulo: "4. Contenido de la Declaración (Art. 7)",
+        icono: "fa-list-check",
+        teoria: "La DIP exige declarar actividades económicas (últimos 12 meses), inmuebles, vehículos, acciones, sociedades y deudas sobre 100 UTM. Además, deben incluirse los bienes del cónyuge si existe sociedad conyugal, o conviviente si hay comunidad de bienes.",
+        aplicacion: "Deudas por Pensión de Alimentos: Es obligatorio declararlas sin importar el monto, indicando si se figura en el Registro Nacional de Deudores de Pensiones de Alimentos.",
+        alerta: "Estas declaraciones son públicas (datos abiertos en Contraloría), omitiendo solo datos sensibles como domicilios exactos o números de cuenta bancaria."
+    },
+    {
+        titulo: "5. Control Preventivo vs. Fiscalización (Arts. 9, 10, 11)",
+        icono: "fa-shield-halved",
+        teoria: "El Jefe de Servicio y la Auditoría Interna (según CAIGG) tienen el deber de verificar el cumplimiento internamente. La Contraloría General de la República (CGR) ejerce el control externo, cruzando datos con SII y Bancos para formular cargos y sancionar.",
+        aplicacion: "El servicio no debe esperar a que Contraloría detecte el incumplimiento; debe reportar activamente a quienes no actualizaron su DIP en marzo.",
+        alerta: "El CAIGG audita el control interno, mientras que la CGR fiscaliza y propone la sanción o multa."
+    },
+    {
+        titulo: "6. Fideicomiso Ciego y Enajenación (Arts. 23-45)",
+        icono: "fa-briefcase",
+        teoria: "Autoridades con valores bursátiles sobre 25.000 UF deben constituir un Mandato Especial de Administración de Cartera (Fideicomiso Ciego) en un plazo de 90 días, o vender el exceso. Se corta toda comunicación sobre inversiones. \nAdemás, la ley ordena enajenar en 120 días participaciones en empresas que sean proveedoras o fiscalizadas por la autoridad.",
+        aplicacion: "Si una autoridad requiere fondos, el mandatario (banco o corredora) los provee sin informar qué activos liquidó para obtenerlos.",
+        alerta: "Romper el muro de silencio del fideicomiso acarrea multas severas de hasta 1.000 UTM para la autoridad y 2.000 UTM para el mandatario."
+    },
+    {
+        titulo: "7. Instructivo Presidencial N°005/2026: Deber de Abstención",
+        icono: "fa-hand",
+        teoria: "El Instructivo ordena que la autoridad debe abstenerse de inmediato frente a conflictos reales, aparentes o potenciales. Involucra interés personal, consanguinidad (4° grado), afinidad (2° grado), amistades íntimas o enemistades, y haber prestado servicios a las partes en los últimos 2 años.",
+        aplicacion: "El funcionario debe informar a su jefatura sin dilación para inhabilitarse. La jefatura debe reasignar el asunto inmediatamente a otro servidor público.",
+        alerta: "No hacerlo implica un sumario administrativo automático. Ocultarlo vulnera el principio de probidad gravemente."
     }
 ],
     preguntas: [
@@ -177,6 +244,138 @@ const CURSO_SEMILLA = {
         ],
         correcta: 1,
         explicacion: "Existe conflicto de intereses en el ejercicio de la función pública cuando concurren a la vez el interés general propio del ejercicio de las funciones con un interés particular, sea o no de carácter económico, de quien ejerce dichas funciones o de los terceros vinculados a él determinados por la ley, o cuando concurren circunstancias que le restan imparcialidad en el ejercicio de sus competencias."
+    },
+    {
+        enunciado: "2. Una profesional a honorarios es contratada por la ANID para liderar temporalmente un programa de innovación. Su sueldo es equivalente al de un Jefe de Departamento (3er Nivel Jerárquico). ¿Debe realizar la DIP?",
+        opciones: [
+            "No, la ley es exclusiva para funcionarios de planta y contrata.",
+            "Solo debe hacerlo si el contrato a honorarios es superior a 1 año.",
+            "Sí, el Art. 4 N°11 obliga a prestadores a honorarios si su remuneración regular iguala o supera la de un funcionario de 3er nivel jerárquico.",
+            "Debe realizarla, pero de forma voluntaria y simplificada, sin incluir deudas."
+        ],
+        correcta: 2,
+        explicacion: "Las personas contratadas a honorarios que presten servicios en la Administración del Estado están obligadas a efectuar declaración de intereses y patrimonio cuando perciban regularmente una remuneración igual o superior al promedio mensual de la recibida anualmente por un funcionario que se desempeñe en el tercer nivel jerárquico."
+    },
+    {
+        enunciado: "3. ¿Cuáles son los plazos exactos que estipula el Art. 5 para realizar y actualizar la Declaración de Intereses y Patrimonio?",
+        opciones: [
+            "Dentro de 60 días de asumir, actualización en Julio, y al momento exacto de dejar el cargo.",
+            "Dentro de 30 días de asumir el cargo, actualización anual durante el mes de Marzo, y dentro de 30 días posteriores al cese de funciones.",
+            "Dentro de 15 días de asumir y actualización cada 2 años en Diciembre.",
+            "Solo al asumir y al momento del cese de funciones, no hay actualizaciones intermedias."
+        ],
+        correcta: 1,
+        explicacion: "La declaración de intereses y patrimonio deberá efectuarse dentro de los treinta días siguientes de la fecha de asunción del cargo. Además, el declarante deberá actualizarla anualmente, durante el mes de marzo, y dentro de los treinta días posteriores a concluir sus funciones."
+    },
+    {
+        enunciado: "4. En materia de deudas y pasivos, ¿qué obliga explícitamente a declarar el Artículo 7 de la Ley 20.880, sin importar su monto?",
+        opciones: [
+            "Únicamente los créditos hipotecarios y de consumo bancario.",
+            "Deudas con casas comerciales y retail por sobre 50 UTM.",
+            "Las deudas por concepto de pensión de alimentos, fijados o aprobados por resolución judicial, y si está en el Registro de Deudores.",
+            "Los préstamos informales de dinero entre familiares o amigos."
+        ],
+        correcta: 2,
+        explicacion: "La declaración deberá contener la enunciación del pasivo, siempre que en su conjunto ascienda a un monto superior a cien unidades tributarias mensuales. Sin perjuicio de lo anterior, deberán declararse las deudas por concepto de pensión de alimentos, provisorios o definitivos, cualquiera sea su monto, fijados o aprobados por resolución judicial, y se deberá informar si registra inscripción vigente en el Registro Nacional de Deudores de Pensiones de Alimentos."
+    },
+    {
+        enunciado: "5. ¿Cuál es el rol diferenciador entre el CAIGG (Consejo de Auditoría Interna) y la Contraloría (CGR) en materia de DIP?",
+        opciones: [
+            "El CAIGG destituye funcionarios y la CGR solo multa.",
+            "La CGR y el CAIGG tienen las mismas facultades punitivas en los Ministerios.",
+            "El CAIGG aplica multas monetarias, mientras la CGR audita balances.",
+            "El CAIGG promueve el control interno y prevención desde el Ejecutivo. La CGR fiscaliza externamente, formula cargos y propone las multas y sanciones."
+        ],
+        correcta: 3,
+        explicacion: "La Contraloría General de la República fiscalizará la oportunidad, integridad y veracidad del contenido de la declaración de intereses y patrimonio. Si la persona no la realiza o la efectúa de manera incompleta o inexacta, la Contraloría propondrá al jefe de servicio la aplicación de una multa. Por otro lado, la normativa sobre auditoría interna busca promover el control preventivo desde el Ejecutivo."
+    },
+    {
+        enunciado: "6. Un directivo del Ministerio de Ciencias lleva 5 meses ignorando los avisos y sanciones de la Contraloría por no realizar su DIP. Según el Art. 11, ¿cuál es la consecuencia legal?",
+        opciones: [
+            "Descuento del 10% de su salario de por vida.",
+            "Se considera falta grave a la probidad, dando lugar a la destitución o cese de funciones, perdiendo su empleo público.",
+            "Anotación de demérito leve en su hoja de vida funcionaria.",
+            "No hay consecuencia mayor, solo se acumula la multa de 50 UTM."
+        ],
+        correcta: 1,
+        explicacion: "Si el incumplimiento de efectuar o actualizar la declaración de intereses y patrimonio se mantuviera por un período superior a los cuatro meses siguientes a la notificación de la sanción, se considerará falta grave a la probidad y dará lugar a la destitución o cese de funciones del infractor, de acuerdo al estatuto respectivo."
+    },
+    {
+        enunciado: "7. ¿Qué es la 'Enajenación Forzosa' contemplada en el Artículo 45 de la Ley?",
+        opciones: [
+            "Vender los bienes fiscales obsoletos a través de remates públicos.",
+            "El embargo de los vehículos del funcionario si no paga la multa de Contraloría.",
+            "La obligación de ciertas autoridades de vender su participación en empresas que provean al Estado en su área o sean fiscalizadas por él, en un plazo de 120 días.",
+            "El traspaso de los bienes del funcionario a su cónyuge para evitar declaraciones."
+        ],
+        correcta: 2,
+        explicacion: "Las autoridades que se señalan en la normativa deberán enajenar a su participación en la propiedad sobre empresas proveedoras de bienes o servicios al Estado o sus organismos, o empresas que presten servicios sujetos a tarifas reguladas o que exploten concesiones, cuando se encuentren vinculadas expresa y directamente con el ámbito de su competencia o sujetas a su fiscalización. La enajenación deberá ser efectuada dentro del plazo de ciento veinte días corridos."
+    },
+    {
+        enunciado: "8. Un Seremi recién nombrado posee un patrimonio en acciones transables en bolsa equivalente a 30.000 UF. ¿Qué le exige la ley (Arts. 23-44)?",
+        opciones: [
+            "Vender las acciones y donar el dinero al Fisco.",
+            "Constituir un Mandato Especial de Administración de Cartera ('Fideicomiso Ciego') o vender el exceso.",
+            "Solo declarar las acciones en el formulario, sin necesidad de acciones adicionales.",
+            "Renunciar inmediatamente a su cargo de Seremi."
+        ],
+        correcta: 1,
+        explicacion: "Las altas autoridades que sean titulares de acciones, bonos, debentures y demás títulos de oferta pública representativos de capital o de deuda, cuyo valor total supere las veinticinco mil unidades de fomento, deberán optar por constituir un mandato especial de administración de cartera de valores o vender las acciones y valores, al menos, en lo que exceda a dicho monto."
+    },
+    {
+        enunciado: "9. ¿Debe el funcionario incluir los bienes y actividades económicas de su cónyuge en la DIP?",
+        opciones: [
+            "Sí, en todos los casos, independientemente del régimen matrimonial.",
+            "No, la privacidad patrimonial del cónyuge es absoluta y está protegida por la Constitución.",
+            "Sí, siempre que estén casados bajo sociedad conyugal (o acuerdo de unión civil con comunidad de bienes). En otros casos es voluntario pero debe incluir actividades que conozca.",
+            "Solo si el cónyuge también trabaja en el sector público."
+        ],
+        correcta: 2,
+        explicacion: "La declaración de intereses y patrimonio deberá comprender los bienes del cónyuge siempre que estén casados bajo el régimen de sociedad conyugal, y los del conviviente civil del declarante, siempre que hayan pactado régimen de comunidad de bienes. Si el declarante está casado bajo cualquier otro régimen o si es conviviente civil sujeto a un régimen de separación de bienes, dicha declaración será voluntaria respecto de los bienes de dicho cónyuge o conviviente. Sin perjuicio de ello, el declarante deberá incluir en su declaración de intereses las actividades económicas, profesionales o laborales que conozca, de su cónyuge o conviviente civil."
+    },
+    {
+        enunciado: "10. Ante un escenario donde un funcionario investigador debe evaluar la adjudicación de fondos concursables a un proyecto liderado por su ex-jefe directo en el sector privado, ¿Cuál es la conducta proba?",
+        opciones: [
+            "Evaluarlo pero ser más estricto con él para demostrar que no hay favoritismo.",
+            "Evaluarlo normalmente, ya que la ley solo prohíbe evaluar a familiares consanguíneos.",
+            "Abstenerse del proceso de evaluación e informar a su jefatura sobre el potencial conflicto de interés para salvaguardar la imparcialidad.",
+            "Otorgarle el fondo si el proyecto es técnicamente bueno, sin importar el vínculo."
+        ],
+        correcta: 2,
+        explicacion: "El principio de abstención consagra que las autoridades y funcionarios deberán abstenerse de intervenir en cualquier procedimiento administrativo si se tiene relación de servicio con persona natural o jurídica interesada directamente en el asunto, o si se le han prestado servicios profesionales en los dos últimos años. Frente a ello, es deber del servidor informarlo a su superior inmediato sin dilación, procediendo a inhabilitarse de conocer y resolver el asunto."
+    },
+    {
+        enunciado: "11. Según el Manual, ¿qué NO pueden contener las instrucciones generales de administración incluidas en la escritura de constitución del Mandato Especial?",
+        opciones: [
+            "El riesgo y diversificación de las inversiones.",
+            "El plan de liquidación de los valores entregados.",
+            "Disposiciones que ordenen invertir en un rubro o empresa en particular.",
+            "El inventario detallado de los valores que conforman el mandato."
+        ],
+        correcta: 2,
+        explicacion: "La escritura de constitución del mandato debe contener las instrucciones generales de administración, referidas al plan de liquidación y al riesgo y diversificación de las inversiones. Con todo, dichas instrucciones no podrán referirse a efectuar inversiones en algún rubro o empresa en particular."
+    },
+    {
+        enunciado: "12. ¿Sobre qué materias EXCEPCIONALMENTE se permite la comunicación por escrito entre mandante y mandatario, previa aprobación de la Superintendencia respectiva?",
+        opciones: [
+            "Sobre el detalle de cada compra y venta de acciones realizada.",
+            "Resultados globales del mandato, giros a beneficio del mandante, pérdida de independencia del mandatario, y declaración y pago de impuestos.",
+            "Sobre cualquier tema, siempre que quede registrado por escrito.",
+            "Solo sobre el monto de la remuneración del mandatario."
+        ],
+        correcta: 1,
+        explicacion: "Se prohíbe al mandatario comunicarse con el mandante para informarle sobre el destino de su patrimonio o pedir instrucciones. Excepcionalmente se permitirán comunicaciones por escrito previamente aprobadas por la respectiva Superintendencia, las que sólo podrán versar sobre resultados globales del mandato, giros a beneficio del mandante, pérdida de la calidad de independiente del mandatario, y declaración y pago de impuestos."
+    },
+    {
+        enunciado: "13. Según el Instructivo Presidencial N°005/2026 sobre el deber de abstención (Art. 12 LBPA), si un funcionario efectivamente incurre en una causal de abstención pero de todas formas interviene y resuelve el asunto, ¿qué ocurre con el acto administrativo dictado?",
+        opciones: [
+            "El acto es siempre nulo de pleno derecho, sin excepción.",
+            "No pasa nada con el acto, porque el deber de abstención es meramente formal.",
+            "La infracción no implica necesariamente la invalidez del acto, pero debe ser ponderada fundadamente por la autoridad, y siempre da lugar a responsabilidad administrativa del servidor mediante procedimiento disciplinario.",
+            "El acto se invalida automáticamente y el funcionario queda inhabilitado de por vida para la función pública."
+        ],
+        correcta: 2,
+        explicacion: "Por expresa disposición de la ley, la infracción al deber de abstención no implicará, necesariamente, la invalidez de los actos en que hayan intervenido. Sin embargo, el incumplimiento dará lugar a la determinación de responsabilidad del servidor. Frente a la eventual infracción, es obligatorio para el servicio respectivo la instrucción de un procedimiento disciplinario."
     }
 ]
 };
@@ -197,7 +396,7 @@ const ICONOS = [
 ];
 
 // ============================================================
-// VISTA: CURSO
+// VISTA: CURSO (genérica — sirve para cualquier curso de la BD)
 // ============================================================
 const Curso = ({ curso, sesion }) => {
     const modulos = curso.modulos || [];
@@ -215,18 +414,18 @@ const Curso = ({ curso, sesion }) => {
     const [respuestas, setRespuestas] = useState([]);
     const [puntaje, setPuntaje] = useState(0);
     const [mostrarExp, setMostrarExp] = useState(false);
-    
-    // Estados para PDF y Temporizador
-    const [generandoPDF, setGenerandoPDF] = useState(false);
-    const [tiempoVideo, setTiempoVideo] = useState(0);
 
+    // Estados para el temporizador y el PDF
+    const [tiempoVideo, setTiempoVideo] = useState(0);
+    const [generandoPDF, setGenerandoPDF] = useState(false);
+    
     const scrollRef = useRef(null);
 
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }, [moduloActivo, indicePregunta, vista]);
 
-    // Lógica del Temporizador
+    // EFECTOS PARA EL TEMPORIZADOR DEL VIDEO
     useEffect(() => {
         if (moduloActivo === -1 && curso.video_duracion > 0) {
             setTiempoVideo(curso.video_duracion);
@@ -236,9 +435,7 @@ const Curso = ({ curso, sesion }) => {
     useEffect(() => {
         let timer;
         if (moduloActivo === -1 && tiempoVideo > 0) {
-            timer = setInterval(() => {
-                setTiempoVideo(prev => prev - 1);
-            }, 1000);
+            timer = setInterval(() => setTiempoVideo(prev => prev - 1), 1000);
         }
         return () => clearInterval(timer);
     }, [moduloActivo, tiempoVideo]);
@@ -319,10 +516,10 @@ const Curso = ({ curso, sesion }) => {
         }
     };
 
+    // FUNCIÓN PARA DESCARGAR PDF HORIZONTAL
     const descargarPDF = () => {
         setGenerandoPDF(true);
         const elemento = document.getElementById('certificate-print-area');
-        
         const opciones = {
             margin:       0,
             filename:     `Certificado_${curso.id}_${datos.rut}.pdf`,
@@ -330,7 +527,6 @@ const Curso = ({ curso, sesion }) => {
             html2canvas:  { scale: 2, useCORS: true },
             jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
         };
-
         window.html2pdf().set(opciones).from(elemento).save().then(() => {
             setGenerandoPDF(false);
         });
@@ -383,6 +579,7 @@ const Curso = ({ curso, sesion }) => {
     );
 
     const vistaModulos = () => {
+        // VENTANA DE VIDEO Y TEMPORIZADOR AÑADIDOS
         if (moduloActivo === -1) {
             return (
                 <div className="max-w-4xl mx-auto w-full slide-up">
@@ -390,15 +587,13 @@ const Curso = ({ curso, sesion }) => {
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">
                             <i className="fa-solid fa-circle-play text-red-600 mr-2"></i> Video del curso
                         </h2>
-                        <div className="bg-black rounded-xl overflow-hidden relative" style={{ paddingBottom: '56.25%', height: 0 }}>
+                        <div className="bg-black rounded-xl overflow-hidden relative mb-6" style={{ paddingBottom: '56.25%', height: 0 }}>
                             <iframe className="absolute top-0 left-0 w-full h-full" src={curso.video_url} frameBorder="0" allowFullScreen></iframe>
                         </div>
-                        
                         <div className="flex justify-end mt-8 border-t border-gray-100 pt-6">
                             {tiempoVideo > 0 ? (
                                 <button disabled className="bg-gray-200 text-gray-500 px-8 py-3 rounded-lg font-bold cursor-not-allowed transition-all">
-                                    <i className="fa-solid fa-clock mr-2"></i> 
-                                    El botón aparecerá al terminar el video...
+                                    <i className="fa-solid fa-clock mr-2"></i> El botón aparecerá al terminar el video...
                                 </button>
                             ) : (
                                 <button onClick={siguienteModulo} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-md transition-all">
@@ -526,17 +721,14 @@ const Curso = ({ curso, sesion }) => {
         );
     };
 
+    // BOTÓN DE DESCARGAR PDF AÑADIDO
     const vistaCertificado = () => (
         <div className="w-full max-w-4xl mx-auto flex flex-col items-center slide-up pb-10">
             <div className="w-full flex justify-end mb-6 print-hidden">
-                <button 
-                    onClick={descargarPDF} 
-                    disabled={generandoPDF}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold shadow transition-colors disabled:opacity-50">
+                <button onClick={descargarPDF} disabled={generandoPDF} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow disabled:opacity-50">
                     <i className="fa-solid fa-download mr-2"></i> {generandoPDF ? "Generando PDF..." : "Descargar Certificado PDF"}
                 </button>
             </div>
-            
             <div id="certificate-print-area" className="w-full bg-white p-12 border-8 border-double border-blue-900 shadow-2xl text-center certificate-bg" style={{ minHeight: '600px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <div className="flex justify-center mb-8"><Logo clase="h-24" fallback="text-blue-900 text-5xl" /></div>
                 <h1 className="text-5xl font-serif text-gray-800 mb-8 uppercase">Certificado de Aprobación</h1>
@@ -570,8 +762,11 @@ const Curso = ({ curso, sesion }) => {
     );
 };
 
+
 // ============================================================
 // ESTADÍSTICAS
+// Calcula todos los indicadores a partir de las inscripciones y
+// los certificados ya cargados. No hace consultas adicionales.
 // ============================================================
 function calcularEstadisticas(inscripciones, certificados, cursos) {
     const certDe = (userId, cursoId) =>
@@ -619,7 +814,9 @@ function calcularEstadisticas(inscripciones, certificados, cursos) {
 }
 
 // ============================================================
-// GRÁFICOS
+// GRÁFICO
+// Envuelve Chart.js. Se redibuja cuando cambian los datos y se
+// destruye al desmontarse, para no dejar lienzos huérfanos.
 // ============================================================
 const Grafico = ({ tipo, datos, opciones, alto = 260 }) => {
     const ref = useRef(null);
@@ -757,12 +954,17 @@ const Dashboard = ({ inscripciones, certificados, cursos }) => {
 
 // ============================================================
 // EXPORTACIÓN A EXCEL
+// Genera un libro con tres hojas:
+//   Inscritos  → el detalle, una fila por persona y curso
+//   Resumen    → conteos por curso, listos para graficar
+//   Indicadores→ los totales del dashboard
 // ============================================================
 function exportarExcel(inscripciones, certificados, cursos, etiquetaFiltro) {
     const nombreCurso = (id) => { const c = cursos.find(c => c.id === id); return c ? c.titulo : id; };
     const certDe = (userId, cursoId) => certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
     const e = calcularEstadisticas(inscripciones, certificados, cursos);
 
+    // --- Hoja 1: detalle ---
     const detalle = inscripciones.map(i => {
         const cert = certDe(i.user_id, i.curso_id);
         return {
@@ -781,6 +983,7 @@ function exportarExcel(inscripciones, certificados, cursos, etiquetaFiltro) {
     hoja1["!cols"] = [{ wch: 30 }, { wch: 34 }, { wch: 13 }, { wch: 42 }, { wch: 19 }, { wch: 12 }, { wch: 12 }, { wch: 19 }];
     if (detalle.length) hoja1["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: detalle.length, c: 7 } }) };
 
+    // --- Hoja 2: resumen por curso (base del gráfico) ---
     const resumen = Object.keys(e.porCurso).map(id => {
         const p = e.porCurso[id];
         const evaluados = p.aprobados + p.reprobados;
@@ -797,6 +1000,7 @@ function exportarExcel(inscripciones, certificados, cursos, etiquetaFiltro) {
     const hoja2 = XLSX.utils.json_to_sheet(resumen);
     hoja2["!cols"] = [{ wch: 44 }, { wch: 11 }, { wch: 11 }, { wch: 12 }, { wch: 11 }, { wch: 16 }, { wch: 17 }];
 
+    // --- Hoja 3: indicadores generales ---
     const indicadores = [
         { "Indicador": "Total de inscritos", "Valor": e.total },
         { "Indicador": "Aprobados", "Valor": e.aprobados },
@@ -820,12 +1024,12 @@ function exportarExcel(inscripciones, certificados, cursos, etiquetaFiltro) {
 }
 
 // ============================================================
-// FORMULARIO DE CURSO
+// FORMULARIO DE CURSO (solo administradores)
 // ============================================================
 const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
     const nuevo = !cursoInicial;
     const [c, setC] = useState(cursoInicial || {
-        id: "", titulo: "", descripcion: "", area: "General", icono: "fa-book",
+        id: "", titulo: "", descripcion: "", icono: "fa-book",
         color: "bg-blue-600", video_url: "", video_duracion: 0, publicado: false, orden: 0,
         modulos: [], preguntas: []
     });
@@ -834,14 +1038,29 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
 
     const set = (campo, valor) => setC({ ...c, [campo]: valor });
 
-    const agregarModulo = () => set("modulos", [...(c.modulos || []), { titulo: "", icono: "fa-book", teoria: "", aplicacion: "", alerta: "" }]);
-    const editarModulo = (i, campo, valor) => { const m = [...c.modulos]; m[i] = { ...m[i], [campo]: valor }; set("modulos", m); };
+    // --- módulos ---
+    const agregarModulo = () => set("modulos", [...(c.modulos || []),
+        { titulo: "", icono: "fa-book", teoria: "", aplicacion: "", alerta: "" }]);
+    const editarModulo = (i, campo, valor) => {
+        const m = [...c.modulos]; m[i] = { ...m[i], [campo]: valor }; set("modulos", m);
+    };
     const borrarModulo = (i) => set("modulos", c.modulos.filter((_, j) => j !== i));
-    const moverModulo = (i, dir) => { const m = [...c.modulos]; const k = i + dir; if (k < 0 || k >= m.length) return; [m[i], m[k]] = [m[k], m[i]]; set("modulos", m); };
+    const moverModulo = (i, dir) => {
+        const m = [...c.modulos]; const k = i + dir;
+        if (k < 0 || k >= m.length) return;
+        [m[i], m[k]] = [m[k], m[i]]; set("modulos", m);
+    };
 
-    const agregarPregunta = () => set("preguntas", [...(c.preguntas || []), { enunciado: "", opciones: ["", "", "", ""], correcta: 0, explicacion: "" }]);
-    const editarPregunta = (i, campo, valor) => { const p = [...c.preguntas]; p[i] = { ...p[i], [campo]: valor }; set("preguntas", p); };
-    const editarOpcion = (i, j, valor) => { const p = [...c.preguntas]; const o = [...p[i].opciones]; o[j] = valor; p[i] = { ...p[i], opciones: o }; set("preguntas", p); };
+    // --- preguntas ---
+    const agregarPregunta = () => set("preguntas", [...(c.preguntas || []),
+        { enunciado: "", opciones: ["", "", "", ""], correcta: 0, explicacion: "" }]);
+    const editarPregunta = (i, campo, valor) => {
+        const p = [...c.preguntas]; p[i] = { ...p[i], [campo]: valor }; set("preguntas", p);
+    };
+    const editarOpcion = (i, j, valor) => {
+        const p = [...c.preguntas]; const o = [...p[i].opciones];
+        o[j] = valor; p[i] = { ...p[i], opciones: o }; set("preguntas", p);
+    };
     const borrarPregunta = (i) => set("preguntas", c.preguntas.filter((_, j) => j !== i));
 
     const guardar = async () => {
@@ -857,7 +1076,7 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
 
         setGuardando(true);
         const fila = {
-            id, titulo: c.titulo, descripcion: c.descripcion, area: c.area,
+            id, titulo: c.titulo, descripcion: c.descripcion,
             icono: c.icono, color: c.color, video_url: c.video_url || null,
             video_duracion: parseInt(c.video_duracion, 10) || 0,
             modulos: c.modulos || [], preguntas: c.preguntas || [],
@@ -879,24 +1098,20 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
                 <button onClick={onCancelar} className="text-gray-500 text-sm hover:text-gray-700"><i className="fa-solid fa-xmark mr-1"></i>Cancelar</button>
             </div>
 
+            {/* Datos generales */}
             <section className="space-y-4">
                 <h4 className="font-semibold text-gray-700 border-b border-gray-100 pb-2">Datos generales</h4>
                 <div className="grid md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Identificador (sin espacios)</label>
-                        <input className={campo} value={c.id} disabled={!nuevo} onChange={e => set("id", e.target.value)} placeholder="ej: ciberseguridad-2026" />
+                        <input className={campo} value={c.id} disabled={!nuevo}
+                               onChange={e => set("id", e.target.value)} placeholder="ej: ciberseguridad-2026" />
                         <p className="text-xs text-gray-400 mt-1">{nuevo ? "Se usa en la dirección del curso. No se puede cambiar después." : "No editable."}</p>
                     </div>
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Orden en el portal</label>
                         <input className={campo} type="number" value={c.orden} onChange={e => set("orden", e.target.value)} />
                     </div>
-                </div>
-                <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1">Área del Ministerio</label>
-                    <select className={campo} value={c.area} onChange={e => set("area", e.target.value)}>
-                        {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Título</label>
@@ -909,12 +1124,14 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
                 <div className="grid md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Enlace del video (opcional)</label>
-                        <input className={campo} value={c.video_url || ""} onChange={e => set("video_url", e.target.value)} placeholder="https://drive.google.com/file/d/.../preview" />
+                        <input className={campo} value={c.video_url || ""} onChange={e => set("video_url", e.target.value)}
+                               placeholder="https://drive.google.com/file/d/.../preview" />
+                        <p className="text-xs text-gray-400 mt-1">En Google Drive, usa el enlace terminado en /preview.</p>
                     </div>
                     <div>
                         <label className="block text-xs font-semibold text-blue-700 mb-1">Duración del video (en segundos)</label>
                         <input type="number" className={campo} value={c.video_duracion || 0} onChange={e => set("video_duracion", parseInt(e.target.value) || 0)} />
-                        <p className="text-xs text-gray-500 mt-1">El botón "Continuar" aparecerá cuando termine este tiempo.</p>
+                        <p className="text-xs text-gray-500 mt-1">El botón aparecerá cuando termine este tiempo.</p>
                     </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -922,7 +1139,8 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Ícono</label>
                         <div className="flex flex-wrap gap-2">
                             {ICONOS.map(ic => (
-                                <button key={ic} onClick={() => set("icono", ic)} type="button" className={`w-9 h-9 rounded-lg border-2 ${c.icono === ic ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-400'}`}>
+                                <button key={ic} onClick={() => set("icono", ic)} type="button"
+                                        className={`w-9 h-9 rounded-lg border-2 ${c.icono === ic ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-400'}`}>
                                     <i className={`fa-solid ${ic}`}></i>
                                 </button>
                             ))}
@@ -932,13 +1150,15 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
                         <label className="block text-xs font-semibold text-gray-600 mb-1">Color</label>
                         <div className="flex flex-wrap gap-2">
                             {COLORES.map(col => (
-                                <button key={col.valor} onClick={() => set("color", col.valor)} type="button" title={col.nombre} className={`w-9 h-9 rounded-lg ${col.valor} ${c.color === col.valor ? 'ring-2 ring-offset-2 ring-slate-800' : ''}`}></button>
+                                <button key={col.valor} onClick={() => set("color", col.valor)} type="button" title={col.nombre}
+                                        className={`w-9 h-9 rounded-lg ${col.valor} ${c.color === col.valor ? 'ring-2 ring-offset-2 ring-slate-800' : ''}`}></button>
                             ))}
                         </div>
                     </div>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <input type="checkbox" checked={!!c.publicado} onChange={e => set("publicado", e.target.checked)} /> Publicado (visible para todos los funcionarios)
+                    <input type="checkbox" checked={!!c.publicado} onChange={e => set("publicado", e.target.checked)} />
+                    Publicado (visible para todos los funcionarios)
                 </label>
             </section>
 
@@ -1006,21 +1226,23 @@ const FormularioCurso = ({ cursoInicial, onGuardado, onCancelar, sesion }) => {
 
 // ============================================================
 // GESTIÓN DE ADMINISTRADORES
+// Los cambios se hacen llamando a funciones de la base de datos
+// (otorgar_admin / revocar_admin), que verifican por su cuenta que
+// quien las invoca sea administrador. El navegador no puede tocar
+// la columna es_admin ni la tabla de autorizados directamente.
 // ============================================================
-const GestionAdmins = ({ sesion, adminData }) => {
+const GestionAdmins = ({ sesion }) => {
     const [lista, setLista] = useState([]);
     const [correo, setCorreo] = useState("");
-    const [rol, setRol] = useState("area");
-    const [areaAdmin, setAreaAdmin] = useState(AREAS[0]);
     const [cargando, setCargando] = useState(true);
     const [ocupado, setOcupado] = useState(false);
-    const [mensaje, setMensaje] = useState(null);
+    const [mensaje, setMensaje] = useState(null);   // {tipo, texto}
 
     const cargar = async () => {
         setCargando(true);
         const [{ data: autorizados }, { data: perfiles }] = await Promise.all([
             supabase.from("admins_autorizados").select("*").order("email"),
-            supabase.from("perfiles").select("email, nombre_completo")
+            supabase.from("perfiles").select("email, nombre_completo, ultimo_ingreso")
         ]);
         const porCorreo = {};
         (perfiles || []).forEach(p => { porCorreo[(p.email || "").toLowerCase()] = p; });
@@ -1033,11 +1255,9 @@ const GestionAdmins = ({ sesion, adminData }) => {
     const otorgar = async () => {
         const valor = correo.trim().toLowerCase();
         if (!valor) return;
-        setOcupado(true); setMensaje(null);
-        
-        const areaAEnviar = rol === 'supremo' ? null : areaAdmin;
-        const { data, error } = await supabase.rpc("otorgar_admin", { p_email: valor, p_rol: rol, p_area: areaAEnviar });
-        
+        setOcupado(true);
+        setMensaje(null);
+        const { data, error } = await supabase.rpc("otorgar_admin", { p_email: valor });
         setOcupado(false);
         if (error) setMensaje({ tipo: "error", texto: error.message });
         else { setMensaje({ tipo: "ok", texto: data }); setCorreo(""); await cargar(); }
@@ -1045,7 +1265,8 @@ const GestionAdmins = ({ sesion, adminData }) => {
 
     const revocar = async (email) => {
         if (!window.confirm(`¿Quitar el acceso de administrador a ${email}?`)) return;
-        setOcupado(true); setMensaje(null);
+        setOcupado(true);
+        setMensaje(null);
         const { data, error } = await supabase.rpc("revocar_admin", { p_email: email });
         setOcupado(false);
         if (error) setMensaje({ tipo: "error", texto: error.message });
@@ -1053,48 +1274,40 @@ const GestionAdmins = ({ sesion, adminData }) => {
     };
 
     const miCorreo = (sesion.user.email || "").toLowerCase();
-    const esSupremo = adminData?.rol_admin === 'supremo';
 
     return (
         <>
             <h2 className="text-2xl font-bold text-gray-800 mb-1">Administradores</h2>
-            <p className="text-gray-500 text-sm mb-6">Solo los Administradores Supremos pueden otorgar o revocar permisos.</p>
+            <p className="text-gray-500 text-sm mb-6">
+                Quien tenga este permiso puede ver los inscritos, crear cursos y designar a otros administradores.
+            </p>
 
-            {esSupremo && (
-                <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Agregar administrador</label>
-                    <div className="flex flex-wrap items-end gap-3">
-                        <div className="flex-grow min-w-[200px]">
-                            <label className="block text-xs font-semibold mb-1 text-gray-500">Correo @{DOMINIO}</label>
-                            <input type="email" value={correo} onChange={e => setCorreo(e.target.value)}
-                                placeholder={`ejemplo@${DOMINIO}`} className="w-full px-4 py-2 rounded-lg border border-gray-300 text-sm" />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold mb-1 text-gray-500">Rol</label>
-                            <select value={rol} onChange={e => setRol(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-300 text-sm">
-                                <option value="supremo">Supremo (Ve todo)</option>
-                                <option value="area">Por Área</option>
-                            </select>
-                        </div>
-                        {rol === 'area' && (
-                            <div>
-                                <label className="block text-xs font-semibold mb-1 text-gray-500">Área Asignada</label>
-                                <select value={areaAdmin} onChange={e => setAreaAdmin(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-gray-300 text-sm">
-                                    {AREAS.map(a => <option key={a} value={a}>{a}</option>)}
-                                </select>
-                            </div>
-                        )}
-                        <button onClick={otorgar} disabled={ocupado || !correo.trim()}
-                                className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-bold text-sm disabled:opacity-40">
-                            <i className="fa-solid fa-user-shield mr-2"></i>Otorgar acceso
-                        </button>
-                    </div>
+            <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Agregar administrador</label>
+                <div className="flex flex-wrap gap-3">
+                    <input
+                        type="email"
+                        value={correo}
+                        onChange={e => setCorreo(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") otorgar(); }}
+                        placeholder={`nombre.apellido@${DOMINIO}`}
+                        className="flex-grow min-w-[260px] px-4 py-2 rounded-lg border border-gray-300 text-sm" />
+                    <button onClick={otorgar} disabled={ocupado || !correo.trim()}
+                            className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-bold text-sm disabled:opacity-40">
+                        <i className="fa-solid fa-user-shield mr-2"></i>Otorgar acceso
+                    </button>
                 </div>
-            )}
+                <p className="text-xs text-gray-400 mt-2">
+                    Debe ser un correo @{DOMINIO}. Si la persona nunca ha ingresado al portal, el permiso queda reservado y se activa solo cuando entre por primera vez.
+                </p>
+            </div>
 
             {mensaje && (
-                <div className={`text-sm rounded-lg p-3 mb-6 border ${mensaje.tipo === "ok" ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-700"}`}>
-                    <i className={`fa-solid ${mensaje.tipo === "ok" ? "fa-circle-check" : "fa-circle-exclamation"} mr-2`}></i> {mensaje.texto}
+                <div className={`text-sm rounded-lg p-3 mb-6 border ${mensaje.tipo === "ok"
+                    ? "bg-green-50 border-green-200 text-green-800"
+                    : "bg-red-50 border-red-200 text-red-700"}`}>
+                    <i className={`fa-solid ${mensaje.tipo === "ok" ? "fa-circle-check" : "fa-circle-exclamation"} mr-2`}></i>
+                    {mensaje.texto}
                 </div>
             )}
 
@@ -1103,8 +1316,9 @@ const GestionAdmins = ({ sesion, adminData }) => {
                     <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                         <tr>
                             <th className="text-left px-4 py-3">Correo</th>
-                            <th className="text-left px-4 py-3">Rol</th>
-                            <th className="text-left px-4 py-3">Área</th>
+                            <th className="text-left px-4 py-3">Nombre</th>
+                            <th className="text-left px-4 py-3">Estado</th>
+                            <th className="text-left px-4 py-3">Agregado por</th>
                             <th className="text-right px-4 py-3">Acción</th>
                         </tr>
                     </thead>
@@ -1112,20 +1326,38 @@ const GestionAdmins = ({ sesion, adminData }) => {
                         {lista.map(a => (
                             <tr key={a.email} className="border-t border-gray-100">
                                 <td className="px-4 py-3 font-medium text-gray-800">
-                                    {a.email} {a.email === miCorreo && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">tú</span>}
+                                    {a.email}
+                                    {a.email === miCorreo && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">tú</span>}
                                 </td>
-                                <td className="px-4 py-3 capitalize">{a.rol_admin || 'Area'}</td>
-                                <td className="px-4 py-3 text-gray-500">{a.rol_admin === 'supremo' ? 'Todas' : (a.area_asignada || 'General')}</td>
+                                <td className="px-4 py-3 text-gray-500">{a.perfil ? (a.perfil.nombre_completo || "—") : "—"}</td>
+                                <td className="px-4 py-3">
+                                    {a.perfil
+                                        ? <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Activo</span>
+                                        : <span className="text-amber-600 font-semibold"><i className="fa-solid fa-clock mr-1"></i>Pendiente de primer ingreso</span>}
+                                </td>
+                                <td className="px-4 py-3 text-gray-400 text-xs">{a.agregado_por || "—"}</td>
                                 <td className="px-4 py-3 text-right">
-                                    {esSupremo && a.email !== miCorreo ? (
-                                        <button onClick={() => revocar(a.email)} disabled={ocupado} className="text-red-500 hover:text-red-700 font-semibold disabled:opacity-40"><i className="fa-solid fa-user-minus mr-1"></i>Revocar</button>
-                                    ) : <span className="text-gray-300 text-xs">—</span>}
+                                    {a.email === miCorreo
+                                        ? <span className="text-gray-300 text-xs">—</span>
+                                        : <button onClick={() => revocar(a.email)} disabled={ocupado}
+                                                  className="text-red-500 hover:text-red-700 font-semibold disabled:opacity-40">
+                                            <i className="fa-solid fa-user-minus mr-1"></i>Revocar
+                                          </button>}
                                 </td>
                             </tr>
                         ))}
+                        {!cargando && lista.length === 0 && (
+                            <tr><td colSpan="5" className="px-4 py-10 text-center text-gray-400">No hay administradores registrados.</td></tr>
+                        )}
+                        {cargando && <tr><td colSpan="5" className="px-4 py-10 text-center text-gray-400">Cargando…</td></tr>}
                     </tbody>
                 </table>
             </div>
+
+            <p className="text-xs text-gray-400 mt-4">
+                <i className="fa-solid fa-shield-halved mr-1"></i>
+                Por seguridad no puedes revocarte el permiso a ti mismo, y el sistema impide quedarse sin ningún administrador.
+            </p>
         </>
     );
 };
@@ -1133,20 +1365,14 @@ const GestionAdmins = ({ sesion, adminData }) => {
 // ============================================================
 // VISTA: PANEL DE ADMINISTRADOR
 // ============================================================
-const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
-    const esAdmin = !!adminData?.es_admin;
-    const esSupremo = adminData?.rol_admin === 'supremo';
-    const miArea = adminData?.area_asignada;
-
+const PanelAdmin = ({ sesion, esAdmin, cursos, recargarCursos }) => {
     const [pestana, setPestana] = useState("inscritos");
     const [inscripciones, setInscripciones] = useState([]);
     const [certificados, setCertificados] = useState([]);
     const [filtroCurso, setFiltroCurso] = useState("todos");
     const [cargando, setCargando] = useState(true);
-    const [editando, setEditando] = useState(null);
+    const [editando, setEditando] = useState(null);   // null | {} | curso
     const [aviso, setAviso] = useState("");
-
-    const misCursos = esSupremo ? cursos : cursos.filter(c => (c.area || 'General') === miArea);
 
     useEffect(() => {
         if (!esAdmin) { setCargando(false); return; }
@@ -1155,13 +1381,11 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                 supabase.from("inscripciones").select("*").order("iniciado_en", { ascending: false }),
                 supabase.from("certificados").select("*").order("emitido_en", { ascending: false })
             ]);
-            
-            const idsPermitidos = misCursos.map(c => c.id);
-            setInscripciones((insc || []).filter(i => idsPermitidos.includes(i.curso_id)));
-            setCertificados((certs || []).filter(c => idsPermitidos.includes(c.curso_id)));
+            setInscripciones(insc || []);
+            setCertificados(certs || []);
             setCargando(false);
         })();
-    }, [esAdmin, misCursos.length]);
+    }, [esAdmin]);
 
     if (!esAdmin) {
         return (
@@ -1169,19 +1393,24 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                 <div className="bg-white p-10 rounded-3xl shadow-xl max-w-md text-center">
                     <div className="text-red-500 text-4xl mb-4"><i className="fa-solid fa-lock"></i></div>
                     <h1 className="text-xl font-bold mb-2">Sin acceso de administrador</h1>
+                    <p className="text-gray-500 mb-6">Tu cuenta no tiene permisos para ver este panel.</p>
                     <a href="#/" className="text-blue-600 font-semibold"><i className="fa-solid fa-arrow-left mr-2"></i>Volver al portal</a>
                 </div>
             </div>
         );
     }
 
-    const nombreCurso = (id) => { const c = misCursos.find(c => c.id === id); return c ? c.titulo : id; };
+    const nombreCurso = (id) => {
+        const c = cursos.find(c => c.id === id);
+        return c ? c.titulo : id;
+    };
+
     const cursosConDatos = [...new Set(inscripciones.map(i => i.curso_id))];
     const inscFiltradas = filtroCurso === "todos" ? inscripciones : inscripciones.filter(i => i.curso_id === filtroCurso);
     const certificadoDe = (userId, cursoId) => certificados.find(c => c.user_id === userId && c.curso_id === cursoId);
 
-    const enBaseDeDatos = misCursos.filter(c => !c.esSemilla);
-    const semillaPendiente = misCursos.some(c => c.esSemilla);
+    const enBaseDeDatos = cursos.filter(c => !c.esSemilla);
+    const semillaPendiente = cursos.some(c => c.esSemilla);
 
     const importarSemilla = async () => {
         setAviso("");
@@ -1192,7 +1421,7 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
     };
 
     const eliminarCurso = async (curso) => {
-        if (!window.confirm(`¿Eliminar "${curso.titulo}"?`)) return;
+        if (!window.confirm(`¿Eliminar "${curso.titulo}"? Las inscripciones y certificados ya emitidos NO se borran.`)) return;
         const { error } = await supabase.from("cursos").delete().eq("id", curso.id);
         if (error) setAviso("No se pudo eliminar: " + error.message);
         else { setAviso("Curso eliminado."); await recargarCursos(); }
@@ -1211,14 +1440,22 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                     <Logo clase="h-12 logo-cabecera" fallback="text-white text-xl" />
                     <span><i className="fa-solid fa-arrow-left mr-2"></i>Panel de Administrador</span>
                 </a>
-                <span className="text-sm bg-blue-800 px-3 py-1 rounded-full">{esSupremo ? 'Admin Supremo' : `Admin: ${miArea}`}</span>
             </header>
 
             <main className="max-w-6xl mx-auto p-6 md:p-10">
                 <div className="flex gap-2 mb-6">
-                    <button onClick={() => setPestana("inscritos")} className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'inscritos' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}><i className="fa-solid fa-users mr-2"></i>Inscritos</button>
-                    <button onClick={() => { setPestana("cursos"); setEditando(null); }} className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'cursos' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}><i className="fa-solid fa-book mr-2"></i>Mis Cursos</button>
-                    <button onClick={() => setPestana("admins")} className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'admins' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}><i className="fa-solid fa-user-shield mr-2"></i>Administradores</button>
+                    <button onClick={() => setPestana("inscritos")}
+                            className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'inscritos' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}>
+                        <i className="fa-solid fa-users mr-2"></i>Inscritos
+                    </button>
+                    <button onClick={() => { setPestana("cursos"); setEditando(null); }}
+                            className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'cursos' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}>
+                        <i className="fa-solid fa-book mr-2"></i>Cursos
+                    </button>
+                    <button onClick={() => setPestana("admins")}
+                            className={`px-4 py-2 rounded-lg font-semibold text-sm ${pestana === 'admins' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600'}`}>
+                        <i className="fa-solid fa-user-shield mr-2"></i>Administradores
+                    </button>
                 </div>
 
                 {aviso && <div className="bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded-lg p-3 mb-4">{aviso}</div>}
@@ -1229,10 +1466,18 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                             <h2 className="text-2xl font-bold text-gray-800">Inscritos y certificados</h2>
                             <div className="flex flex-wrap items-center gap-3">
                                 <select value={filtroCurso} onChange={e => setFiltroCurso(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                                    <option value="todos">Todos mis cursos</option>
+                                    <option value="todos">Todos los cursos</option>
                                     {cursosConDatos.map(id => <option key={id} value={id}>{nombreCurso(id)}</option>)}
                                 </select>
-                                <button onClick={() => exportarExcel(inscFiltradas, certificados, misCursos, filtroCurso === "todos" ? "Todos mis cursos" : nombreCurso(filtroCurso))} disabled={inscFiltradas.length === 0} className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed"><i className="fa-solid fa-file-excel mr-2"></i>Exportar a Excel</button>
+                                <button
+                                    onClick={() => exportarExcel(
+                                        inscFiltradas, certificados, cursos,
+                                        filtroCurso === "todos" ? "Todos los cursos" : nombreCurso(filtroCurso)
+                                    )}
+                                    disabled={inscFiltradas.length === 0}
+                                    className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <i className="fa-solid fa-file-excel mr-2"></i>Exportar a Excel
+                                </button>
                             </div>
                         </div>
                         <div className="bg-white rounded-2xl shadow-md overflow-x-auto">
@@ -1241,7 +1486,9 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                                     <tr>
                                         <th className="text-left px-4 py-3">Nombre</th>
                                         <th className="text-left px-4 py-3">Correo</th>
+                                        <th className="text-left px-4 py-3">RUT</th>
                                         <th className="text-left px-4 py-3">Curso</th>
+                                        <th className="text-left px-4 py-3">Inscrito</th>
                                         <th className="text-left px-4 py-3">Resultado</th>
                                     </tr>
                                 </thead>
@@ -1252,7 +1499,9 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                                             <tr key={i.id} className="border-t border-gray-100">
                                                 <td className="px-4 py-3 font-medium text-gray-800">{i.nombre}</td>
                                                 <td className="px-4 py-3 text-gray-500">{i.email}</td>
+                                                <td className="px-4 py-3 text-gray-500">{i.rut}</td>
                                                 <td className="px-4 py-3 text-gray-500">{nombreCurso(i.curso_id)}</td>
+                                                <td className="px-4 py-3 text-gray-500">{new Date(i.iniciado_en).toLocaleDateString("es-CL")}</td>
                                                 <td className="px-4 py-3">
                                                     {!cert && <span className="text-gray-400">En curso</span>}
                                                     {cert && cert.aprobado && <span className="text-green-600 font-semibold"><i className="fa-solid fa-circle-check mr-1"></i>Aprobado ({cert.puntaje}%)</span>}
@@ -1261,11 +1510,15 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                                             </tr>
                                         );
                                     })}
-                                    {!cargando && inscFiltradas.length === 0 && <tr><td colSpan="4" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>}
+                                    {!cargando && inscFiltradas.length === 0 && (
+                                        <tr><td colSpan="6" className="px-4 py-10 text-center text-gray-400">Aún no hay inscritos.</td></tr>
+                                    )}
+                                    {cargando && <tr><td colSpan="6" className="px-4 py-10 text-center text-gray-400">Cargando…</td></tr>}
                                 </tbody>
                             </table>
                         </div>
-                        <Dashboard inscripciones={inscFiltradas} certificados={certificados} cursos={misCursos} />
+
+                        <Dashboard inscripciones={inscFiltradas} certificados={certificados} cursos={cursos} />
                     </>
                 )}
 
@@ -1273,53 +1526,75 @@ const PanelAdmin = ({ sesion, adminData, cursos, recargarCursos }) => {
                     <>
                         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                             <h2 className="text-2xl font-bold text-gray-800">Cursos</h2>
-                            <button onClick={() => setEditando({})} className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-bold text-sm"><i className="fa-solid fa-plus mr-2"></i>Nuevo curso</button>
+                            <button onClick={() => setEditando({})} className="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2 rounded-lg font-bold text-sm">
+                                <i className="fa-solid fa-plus mr-2"></i>Nuevo curso
+                            </button>
                         </div>
+
                         {semillaPendiente && (
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-                                <p className="text-amber-900 text-sm">El curso de Probidad todavía está escrito dentro del archivo. Impórtalo para poder editarlo.</p>
-                                <button onClick={importarSemilla} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap"><i className="fa-solid fa-download mr-2"></i>Importar</button>
+                                <p className="text-amber-900 text-sm">
+                                    El curso de Probidad todavía está escrito dentro del archivo. Impórtalo a la base de datos para poder editarlo desde aquí.
+                                </p>
+                                <button onClick={importarSemilla} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
+                                    <i className="fa-solid fa-download mr-2"></i>Importar
+                                </button>
                             </div>
                         )}
+
                         <div className="grid sm:grid-cols-2 gap-4">
                             {enBaseDeDatos.map(curso => (
                                 <div key={curso.id} className="bg-white rounded-2xl shadow-md p-5">
                                     <div className="flex items-start gap-4 mb-3">
-                                        <div className={`${curso.color} text-white w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}><i className={`fa-solid ${curso.icono}`}></i></div>
+                                        <div className={`${curso.color} text-white w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}>
+                                            <i className={`fa-solid ${curso.icono}`}></i>
+                                        </div>
                                         <div className="min-w-0">
                                             <h3 className="font-bold text-gray-800 leading-tight">{curso.titulo}</h3>
-                                            <p className="text-xs text-blue-600 font-bold mt-1 uppercase">{curso.area}</p>
+                                            <p className="text-xs text-gray-400 mt-1">{curso.id}</p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-3 text-sm mt-4">
-                                        <button onClick={() => alternarPublicado(curso)} className={`px-3 py-1 rounded-full text-xs font-bold ${curso.publicado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}><i className={`fa-solid ${curso.publicado ? 'fa-eye' : 'fa-eye-slash'} mr-1`}></i>{curso.publicado ? 'Publicado' : 'Borrador'}</button>
+                                    <p className="text-xs text-gray-500 mb-4">
+                                        {(curso.modulos || []).length} módulos · {(curso.preguntas || []).length} preguntas
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                                        <button onClick={() => alternarPublicado(curso)}
+                                                className={`px-3 py-1 rounded-full text-xs font-bold ${curso.publicado ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            <i className={`fa-solid ${curso.publicado ? 'fa-eye' : 'fa-eye-slash'} mr-1`}></i>
+                                            {curso.publicado ? 'Publicado' : 'Borrador'}
+                                        </button>
                                         <button onClick={() => setEditando(curso)} className="text-blue-600 font-semibold"><i className="fa-solid fa-pen mr-1"></i>Editar</button>
                                         <button onClick={() => eliminarCurso(curso)} className="text-red-500 font-semibold"><i className="fa-solid fa-trash mr-1"></i>Eliminar</button>
                                     </div>
                                 </div>
                             ))}
-                            {enBaseDeDatos.length === 0 && <p className="text-gray-400 text-sm col-span-2 py-8 text-center">Todavía no hay cursos en la base de datos.</p>}
+                            {enBaseDeDatos.length === 0 && (
+                                <p className="text-gray-400 text-sm col-span-2 py-8 text-center">Todavía no hay cursos en la base de datos.</p>
+                            )}
                         </div>
                     </>
                 )}
 
-                {pestana === "admins" && <GestionAdmins sesion={sesion} adminData={adminData} />}
-                {pestana === "cursos" && editando && <FormularioCurso cursoInicial={editando.id ? editando : null} sesion={sesion} onCancelar={() => setEditando(null)} onGuardado={async () => { setEditando(null); setAviso("Curso guardado."); await recargarCursos(); }} />}
+                {pestana === "admins" && <GestionAdmins sesion={sesion} />}
+
+                {pestana === "cursos" && editando && (
+                    <FormularioCurso
+                        cursoInicial={editando.id ? editando : null}
+                        sesion={sesion}
+                        onCancelar={() => setEditando(null)}
+                        onGuardado={async () => { setEditando(null); setAviso("Curso guardado."); await recargarCursos(); }}
+                    />
+                )}
             </main>
         </div>
     );
 };
 
 // ============================================================
-// VISTA: PORTAL (AGRUPADO POR ÁREAS)
+// VISTA: PORTAL
 // ============================================================
-const Portal = ({ sesion, adminData, cursos, onCerrarSesion }) => {
-    const esAdmin = !!adminData?.es_admin;
+const Portal = ({ sesion, esAdmin, cursos, onCerrarSesion }) => {
     const visibles = cursos.filter(c => c.publicado || esAdmin);
-    
-    // Extraer áreas únicas para agrupar los cursos
-    const areasActivas = [...new Set(visibles.map(c => c.area || 'General'))].sort();
-
     return (
         <div className="min-h-screen">
             <header className="bg-slate-900 text-white px-6 py-3 flex justify-between items-center">
@@ -1341,32 +1616,25 @@ const Portal = ({ sesion, adminData, cursos, onCerrarSesion }) => {
             </header>
 
             <main className="max-w-5xl mx-auto p-6 md:p-10">
+                <h2 className="text-2xl font-bold text-gray-800 mb-1">Cursos disponibles</h2>
                 <p className="text-gray-500 mb-8">Bienvenido/a, {sesion.user.user_metadata.full_name || sesion.user.email}.</p>
 
-                {areasActivas.map(area => (
-                    <div key={area} className="mb-12 fade-in">
-                        <h2 className="text-xl font-bold text-blue-900 border-b-2 border-blue-200 pb-2 mb-6">
-                            <i className="fa-solid fa-layer-group mr-2"></i>Área: {area}
-                        </h2>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {visibles.filter(c => (c.area || 'General') === area).map(curso => (
-                                <a key={curso.id} href={`#/curso/${curso.id}`} className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow p-6 flex flex-col">
-                                    <div className={`${curso.color} text-white w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4`}>
-                                        <i className={`fa-solid ${curso.icono}`}></i>
-                                    </div>
-                                    <h3 className="font-bold text-gray-800 mb-2">{curso.titulo}</h3>
-                                    <p className="text-sm text-gray-500 flex-grow">{curso.descripcion}</p>
-                                    {!curso.publicado && <span className="mt-3 text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full self-start">Borrador — solo visible para ti</span>}
-                                    <span className="mt-4 text-blue-600 font-semibold text-sm">Ingresar al curso <i className="fa-solid fa-arrow-right ml-1"></i></span>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-                
-                {visibles.length === 0 && (
-                    <p className="text-gray-400 py-10 text-center">No hay cursos publicados por ahora.</p>
-                )}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {visibles.map(curso => (
+                        <a key={curso.id} href={`#/curso/${curso.id}`} className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow p-6 flex flex-col fade-in">
+                            <div className={`${curso.color} text-white w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4`}>
+                                <i className={`fa-solid ${curso.icono}`}></i>
+                            </div>
+                            <h3 className="font-bold text-gray-800 mb-2">{curso.titulo}</h3>
+                            <p className="text-sm text-gray-500 flex-grow">{curso.descripcion}</p>
+                            {!curso.publicado && <span className="mt-3 text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full self-start">Borrador — solo visible para ti</span>}
+                            <span className="mt-4 text-blue-600 font-semibold text-sm">Ingresar al curso <i className="fa-solid fa-arrow-right ml-1"></i></span>
+                        </a>
+                    ))}
+                    {visibles.length === 0 && (
+                        <p className="text-gray-400 col-span-3 py-10 text-center">No hay cursos publicados por ahora.</p>
+                    )}
+                </div>
             </main>
         </div>
     );
@@ -1400,6 +1668,9 @@ const Login = ({ errorDominio, onIngresar }) => (
 
 // ============================================================
 // APLICACIÓN
+//   #/                → portal
+//   #/curso/<id>      → curso
+//   #/admin           → panel de administrador
 // ============================================================
 function leerRuta() {
     const h = (window.location.hash || "").replace(/^#/, "");
@@ -1412,7 +1683,7 @@ const App = () => {
     const [cargando, setCargando] = useState(true);
     const [sesion, setSesion] = useState(null);
     const [errorDominio, setErrorDominio] = useState(false);
-    const [adminData, setAdminData] = useState(null);
+    const [esAdmin, setEsAdmin] = useState(false);
     const [cursos, setCursos] = useState([]);
     const [ruta, setRuta] = useState(leerRuta());
 
@@ -1422,6 +1693,9 @@ const App = () => {
         return () => window.removeEventListener("hashchange", alCambiarHash);
     }, []);
 
+    // Carga los cursos desde la base de datos. Si el curso semilla no
+    // está guardado todavía, se agrega igual para que el portal nunca
+    // quede vacío mientras se hace la migración.
     const cargarCursos = async () => {
         const { data, error } = await supabase.from("cursos").select("*").order("orden");
         const lista = (!error && data) ? data : [];
@@ -1445,6 +1719,7 @@ const App = () => {
 
         const email = session.user.email || "";
         if (!esCorreoValido(email)) {
+            // Defensa en el cliente. La real está en la base de datos.
             setErrorDominio(true);
             await supabase.auth.signOut();
             setSesion(null);
@@ -1460,8 +1735,8 @@ const App = () => {
             ultimo_ingreso: new Date().toISOString()
         });
 
-        const { data: perfil } = await supabase.from("perfiles").select("es_admin, rol_admin, area_asignada").eq("id", session.user.id).single();
-        setAdminData(perfil);
+        const { data: perfil } = await supabase.from("perfiles").select("es_admin").eq("id", session.user.id).single();
+        setEsAdmin(!!(perfil && perfil.es_admin));
         await cargarCursos();
     };
 
@@ -1484,7 +1759,7 @@ const App = () => {
     }} />;
 
     if (ruta.vista === "admin") {
-        return <PanelAdmin sesion={sesion} adminData={adminData} cursos={cursos} recargarCursos={cargarCursos} />;
+        return <PanelAdmin sesion={sesion} esAdmin={esAdmin} cursos={cursos} recargarCursos={cargarCursos} />;
     }
 
     if (ruta.vista === "curso") {
@@ -1504,7 +1779,7 @@ const App = () => {
         return <Curso key={curso.id} curso={curso} sesion={sesion} />;
     }
 
-    return <Portal sesion={sesion} adminData={adminData} cursos={cursos} onCerrarSesion={cerrarSesion} />;
+    return <Portal sesion={sesion} esAdmin={esAdmin} cursos={cursos} onCerrarSesion={cerrarSesion} />;
 };
 
 ReactDOM.render(<App />, document.getElementById("root"));
